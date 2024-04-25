@@ -199,8 +199,8 @@ def send_message(text):
         # increment counter
         char_count += 1
 
-
-while True:
+# Commenting out the loop since we will be using the functions from this instead
+'''while True:
     send_message("\nADAFRUIT 1234567890 -$!+='()/:;?,. ")
     time.sleep(2)
     send_message("\nWELCOME TO JOHN PARK'S WORKSHOP!")
@@ -211,3 +211,4 @@ while True:
     # here's an example of sending a character
     # send_character(current_mode.index("A"))
     # time.sleep(char_pause)
+'''
