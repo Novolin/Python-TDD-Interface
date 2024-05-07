@@ -39,7 +39,6 @@ class Game:
         elif command.upper() in self.current_room["acts"]:
             pass
 
-            
 
 run_local = True # DEV! if true, runs an input() field instead of polling the baudot kb
 running = True
