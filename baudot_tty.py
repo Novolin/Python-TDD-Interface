@@ -14,6 +14,7 @@ import board
 from audiocore import RawSample
 import audiopwmio
 
+
 # constants for sine wave generation
 SIN_LENGTH = 100  # more is less choppy
 SIN_AMPLITUDE = 2 ** 12  # 0 (min) to 32768 (max)  8192 is nice
@@ -172,21 +173,21 @@ def send_message(text):
     global char_count, current_mode  # pylint: disable=global-statement
     for char in text:
         if char not in LTRS and char not in FIGS:  # just skip unknown characters
-            print("Unknown character:", char)
+            # print("Unknown character:", char)
             continue
 
         if char not in current_mode:  # switch mode
             if current_mode == LTRS:
-                print("Switching mode to FIGS")
+                # print("Switching mode to FIGS")
                 current_mode = FIGS
                 send_character(current_mode.index("FIGS"))
             elif current_mode == FIGS:
-                print("Switching mode to LTRS")
+                # print("Switching mode to LTRS")
                 current_mode = LTRS
                 send_character(current_mode.index("LTRS"))
         # Send char mode at beginning of message and every 72 characters
         if char_count >= 72 or char_count == 0:
-            print("Resending mode")
+            # print("Resending mode")
             if current_mode == LTRS:
                 send_character(current_mode.index("LTRS"))
             elif current_mode == FIGS:
@@ -199,16 +200,3 @@ def send_message(text):
         # increment counter
         char_count += 1
 
-# Commenting out the loop since we will be using the functions from this instead
-'''while True:
-    send_message("\nADAFRUIT 1234567890 -$!+='()/:;?,. ")
-    time.sleep(2)
-    send_message("\nWELCOME TO JOHN PARK'S WORKSHOP!")
-    time.sleep(3)
-    send_message("\nWOULD YOU LIKE TO PLAY A GAME?")
-    time.sleep(5)
-
-    # here's an example of sending a character
-    # send_character(current_mode.index("A"))
-    # time.sleep(char_pause)
-'''
