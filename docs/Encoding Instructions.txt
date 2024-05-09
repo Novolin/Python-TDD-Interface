@@ -1,0 +1,5 @@
+To encode data to .wav file:
+
+Ensure pydub is installed
+(if not: pip install pydub )
+

@@ -1,6 +1,10 @@
-# String Encoder to TTY/TDD compatible audio
+# Encodes a string into a TTY/TDD Compatible audio file
+# You can then play it with any device
 
-from pydub import AudioSegment
+from tkinter import Tk
+from tkinter import *
+
+from pydub import AudioSegment 
 
 
 audio_data = {"LTRS":{},
@@ -78,13 +82,13 @@ FIGS = (
 )
 
 print("Loading Audio Files.", end = "")
-bit_start = AudioSegment.from_file("wav/start.wav")
+bit_start = AudioSegment.from_file("encoding/wav/start.wav")
 print(".", end="")
-bit_end = AudioSegment.from_file("wav/end.wav", format = "wav")
+bit_end = AudioSegment.from_file("encoding/wav/end.wav", format = "wav")
 print(".", end="")
-bit_1 = AudioSegment.from_file("wav/tone_1.wav", format = "wav")
+bit_1 = AudioSegment.from_file("encoding/wav/tone_1.wav", format = "wav")
 print(".", end="")
-bit_0 = AudioSegment.from_file("wav/tone_0.wav", format = "wav")
+bit_0 = AudioSegment.from_file("encoding/wav/tone_0.wav", format = "wav")
 print(".", end="")
 
 # Function town!
@@ -137,23 +141,41 @@ for i in FIGS: # I know repeating this is less efficient than copying it over so
 
 print("\n Data loaded!")
 
-running = True
-while running:
-    string_to_encode = input("Enter Text To Encode or '~EXIT' to quit:\n>").upper()
-    if string_to_encode == "~EXIT":
-        running = False
-    elif check_message(string_to_encode):
-        print("Invalid string: '" + check_message(string_to_encode) + "' is not a valid character.")
-    else: 
-        print("Creating File for String: " + string_to_encode)
-        file_output = make_message_audio(string_to_encode)
-        save_to = input("Enter Filename:\n>")
-        
-        file_output.export("wav/output/" + save_to + ".wav", format = "wav")
-        print("Saved!")
+def save_file(self):
+    string_to_encode = textInput.get().upper()
+    file_output = make_message_audio(string_to_encode)
+    save_to = text2.get(0, "end")
+    file_output.export("encoding/wav/output/" + save_to + ".wav", format = "wav")
+
         
 
 
 
 
 
+## GUI for encoding script ##
+# allows for better text editiong options #
+
+## YOU FORGOT ABOUT STRINGVARS IDIOT
+
+
+
+window = Tk()
+filenameFrame = LabelFrame(window, text="File Name:")
+
+frame = LabelFrame(window, text="Enter text to encode:")
+textInput = Entry(filenameFrame)
+textInput.grid()
+text2 = Text(frame)
+text2.grid()
+filenameFrame.grid(column=0, row = 0, rowspan = 1)
+frame.grid(column = 0, row = 1, columnspan = 2, rowspan = 1)
+
+savebutton = Button(window, text="SAVE")
+savebutton.grid(column=0, row=2)
+
+savebutton.bind("<Button-1>", save_file)
+
+
+
+window.mainloop()
