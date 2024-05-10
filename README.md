@@ -16,6 +16,22 @@ To use discrete .wav files for each message, use tty_encoder.py. I'll write more
 * [Pydub:](https://github.com/jiaaro/pydub)
     * handles audio encoding for wav files, not needed for Pico
 
+
+## Known Issues:
+# Major issues:
+* Hardware ain't workin (Pico)
+    - Waiting on parts
+* Documentation incomplete
+* Decoding not implemented
+    * I know *what* to do, but not *how* to do it, yet!
+
+# Tweaks:
+- UI needs polish
+- Data packet length needs some tweaking ( make sure each packet is 300ms?)
+- files need cleanup
+- harsh transitions between bits in 45.5 baud
+    
+
 # Changelog:
 ## V0.03:
 * Fixed byte-flipping issue with FSK encoding
