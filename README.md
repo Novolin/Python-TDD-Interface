@@ -7,6 +7,10 @@ It should be compatible with other Baudot-based TTY solutions, as long as the ca
 
 For direct interfacing, upload the files in /Pico to a Pi Pico, or other CircuitPython-compatible microcontroller. 
 
+**DO NOT PLUG IT INTO A PHONE JACK**
+*Phone jacks ring at 90 Volts*, do not fuck with them, or they will hurt you and your gear. If you are interfacing with a line, only interface with the direct connection on your TTY. 
+Your best bet is to use the acoustic coupler because it's safer, and you get to hear the cool beepy boops.
+
 To use discrete .wav files for each message, use tty_encoder.py. I'll write more instructions once it's actually working properly!
 
 
@@ -17,15 +21,15 @@ To use discrete .wav files for each message, use tty_encoder.py. I'll write more
     * handles audio encoding for wav files, not needed for Pico
 
 
-## Known Issues:
-# Major issues:
+# Known Issues:
+## Major issues:
 * Hardware ain't workin (Pico)
     - Waiting on parts
 * Documentation incomplete
 * Decoding not implemented
     * I know *what* to do, but not *how* to do it, yet!
 
-# Tweaks:
+## Tweaks:
 - UI needs polish
 - Data packet length needs some tweaking ( make sure each packet is 300ms?)
 - files need cleanup
