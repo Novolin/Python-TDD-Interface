@@ -1,0 +1,15 @@
+V0.03:
+- started tracking changes
+- fixed FSK bit order
+- reorganized file structure
+- expanded on readme.md
+    Audio Files:
+- tweaked wave files for smoother playback
+    -immediately negated change because I changed baud rate and it did the same thing
+- renamed files to 1400.wav and 1800.wav since i kept confusing myself
+- hopefully will implement proper waveform generation soon?
+- Added 45.5/50 baud switching option
+    GUI:
+- Started writing it properly
+- Added baud rate selection
+

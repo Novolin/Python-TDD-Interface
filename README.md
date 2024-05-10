@@ -1,16 +1,28 @@
-# TTY Terminal
-This project is an attempt to make a terminal interface via a Ultratec Superprint 4425, using Baudot encoding.
+# TTY/TDD Interface
+This project is an attempt to allow users to interface with an Ultratec Superprint 4425, using Baudot encoding.
 
 Eventually, it will support two-way communication, but currently, it is focused on host -> tty output. 
 
-It should be compatible with other Baudot-based TTY solutions, as long as the carrier tones/communication rates are the same.
+It should be compatible with other Baudot-based TTY solutions, as long as the carrier tones/communication rates are the same. (1400/1800 Hz, 45.5 or 50 baud)
+
+For direct interfacing, upload the files in /Pico to a Pi Pico, or other CircuitPython-compatible microcontroller. 
+
+To use discrete .wav files for each message, use tty_encoder.py. I'll write more instructions once it's actually working properly!
+
+
 
 
 # Required Libraries:
-* Pydub: (put a link here)
-    * handles audio encoding for bd_encode.py
+* [Pydub:](https://github.com/jiaaro/pydub)
+    * handles audio encoding for wav files, not needed for Pico
 
 # Changelog:
+## V0.03:
+* Fixed byte-flipping issue with FSK encoding
+* Made a GUI for the encoding application.
+* Tweaked audio files for smoother playback
+* Various minor fixes. See docs/changelog.txt
+
 ## V0.02:
 I'm waiting on some hardware for the audio side of things so I did some non-circuitpython scripting: 
 

@@ -14,10 +14,13 @@ Connect to speaker and play PWM audio
 
 # Software Phase:
 
-Encode data in 45.5b TTY-compatible FSK (Complete???)
+Encode data in 50 baud TTY-compatible FSK
 
 Decode data from same (Not started, hard :( )
 
-Encode audio files which can transport data to TTY (backup/secondary option)
+Encode audio files which can transport data to TTY (portability?)
 
 Decode recorded audio (Also backup, largely for learning)
+
+Switch from .wav files with tones to proper frequency generation (maybe)
+

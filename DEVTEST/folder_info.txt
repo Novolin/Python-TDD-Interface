@@ -1,0 +1,5 @@
+This folder is for files related to testing the interfacing
+Things in here may or may not be stable, and may be weird or funky
+It's mostly a home for random files that are super early WIPs
+
+Also some test audio that I've recorded from the TTY, and some audio to test on the TTY
