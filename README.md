@@ -34,7 +34,7 @@ To use discrete .wav files for each message, use tty_encoder.py. I'll write more
 - Data packet length needs some tweaking ( make sure each packet is 300ms?)
 - files need cleanup
 - harsh transitions between bits in 45.5 baud
-    
+- If pydub isn't happy with ffmpeg/codec packs, it will throw errors on launch. Exports will still work.
 
 # Changelog:
 ## V0.03:

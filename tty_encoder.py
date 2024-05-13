@@ -149,10 +149,9 @@ def sanitize_text(in_string):
     return out_string
 
 def clear_entries():
-    # TODO add a prompt
-    
-    filename_box.delete(0,"end")
+    # TODO add a prompt?
     entry_box.delete("1.0", "end" )
+
 
 def save_file():
     load_audio_files()
@@ -163,44 +162,73 @@ def save_file():
     audio_to_output = make_message_audio(text_in)
     audio_to_output.export(outname, format = "wav")
 
-def preview_text(text):
-    # Creates a child window which shows how the text should look
-    # still TODO
-    pass
+def preview_text():
+    text_preview = sanitize_text(entry_box.get(0.0,"end").upper())
+    preview.set(text_preview)
 
+
+def verify_input(key_input = False):
+    preview_text()
+    # Should we allow the user to save the file?
+    allow_save = True
+    if filename_box.get() == "":
+        allow_save = False
+    if preview.get() == "":
+        allow_save = False
+    if allow_save:
+        save_button['state'] = NORMAL
+    else:
+        save_button['state'] = DISABLED
 
 ### UI ###
 root = Tk()
 
-content = ttk.Frame(root, padding=(5,5,10,10))
-options_frame = ttk.Frame(content, padding=(10,10,10,10))
-                          
 limit_chars = BooleanVar(value = True)
 skip_bad = BooleanVar(value=True)
 filename = StringVar(value="encoded")
 baud_rate = IntVar(value=50)
+preview = StringVar(value="")
+
+content = ttk.Frame(root, padding=(5,5,10,10))
+preview_frame = ttk.LabelFrame(content, text="Preview", padding=(5,5,10,10))
+options_frame = ttk.LabelFrame(content, padding=(10,10,10,10), text="Options")
+baud_frame = ttk.LabelFrame(options_frame, text="Baud Rate:")
+
+filename_box = ttk.Entry(options_frame, textvariable=filename)
+filename_label = ttk.Label(options_frame, text= "File Name:")
+clear_button = ttk.Button(options_frame, command=clear_entries, text="Clear")
+save_button = ttk.Button(options_frame, command=save_file, text="Save", state="disabled")
 
 
+
+baud_45 = ttk.Radiobutton(baud_frame, text="45.5", variable=baud_rate, value = 45)
+baud_50 = ttk.Radiobutton(baud_frame, text="50", variable=baud_rate, value = 50)
 bad_box = ttk.Checkbutton(options_frame, text="Replace Unsupported\nCharacters", variable= skip_bad, onvalue=True)
-filename_box = ttk.Entry(content, textvariable=filename)
-filename_label = ttk.Label(content, text= "File Name:")
+
 entry_box = Text(content, width=25)
-clear_button = ttk.Button(content, command=clear_entries, text="Clear")
-save_button = ttk.Button(content, command=save_file, text="Save")
-baud_45 = ttk.Radiobutton(options_frame, text="45.5 Baud", variable=baud_rate, value = 45)
-baud_50 = ttk.Radiobutton(options_frame, text="50 Baud", variable=baud_rate, value = 50)
+
+preview_box = ttk.Label(preview_frame, padding=(N,S,E,W), textvariable=preview, font="Fixedsys", width=25)
+
 
 content.grid(column=0, row=0)
-options_frame.grid(column=3, row=0, rowspan=3)
+## OPTIONS BOX ##
+options_frame.grid(column=0, row=0, columnspan=2, sticky=(N,S,E,W))
+baud_frame.grid(column=0, row=0)
 baud_45.grid(column=0, row=0, sticky="W")
 baud_50.grid(column=0,row=1, sticky="W")
-filename_label.grid(column=0, row = 0)
-filename_box.grid(column=1, columnspan= 2,row = 0)
-entry_box.grid(column=0, columnspan=3, row = 1, rowspan = 3)
-clear_button.grid(column=0, row=4)
-save_button.grid(column=3, row=4)
-bad_box.grid(column=0, row=2)
+filename_label.grid(column=0, row = 1)
+filename_box.grid(column=1, columnspan= 2,row = 1)
+filename_box.bind("<KeyRelease>", verify_input)
+clear_button.grid(column=0, row=2)
+save_button.grid(column=1, row=2)
+bad_box.grid(column=1, row=0)
 
+## TEXT ENTRY ##
+entry_box.grid(column=0, row = 1)
+entry_box.bind("<KeyRelease>",verify_input)
+
+preview_frame.grid(column = 1, row = 1, sticky=(N,S,E,W))
+preview_box.grid()
 
 
 ## RUN IT ##
