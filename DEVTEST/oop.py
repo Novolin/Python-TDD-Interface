@@ -5,6 +5,7 @@ from tkinter import *
 from tkinter import ttk
 import textwrap
 from pydub import AudioSegment 
+import simpleaudio as sa
 
 
 # Character encodings/list
@@ -128,6 +129,7 @@ class BaudotEncoder:
         self.assert_figs = make_byte_audio(0b11011, baud_rate)
         self.last_assert_type = "LTRS"
         self.last_assert_at = 99
+        self.audio_player = False
 
     def make_message_audio(self, message):
         out_wav = AudioSegment.silent(150) # Add a small silence at the start of the byte
@@ -149,17 +151,33 @@ class BaudotEncoder:
                 self.last_assert_at += 1
 
         return out_wav
+    def play_audio_data(self, message):
+        msg_to_play = self.make_message_audio(message)
+        self.audio_player = sa.play_buffer(msg_to_play.get_array_of_samples(), 1, 2, 44100)
+
 
 class BaudotDecoder:
     # Object to decode incoming audio data
     def __init__(self, rate):
         self.baud_rate = rate
 
-encoders = [BaudotEncoder(50), BaudotEncoder(45)]
-def clear_entries():
-    # TODO add a prompt?
-    entry_box.delete("1.0", "end" )
 
+encoders = [BaudotEncoder(50), BaudotEncoder(45)]
+def clear_entries(calling_window):
+    entry_box.delete("1.0", "end" )
+    preview_text()
+    calling_window.destroy()
+    
+
+def confirm_clear(msg):
+    conf_window = Toplevel(root)
+    conf_window.title = msg
+    do_confirm = ttk.Button(conf_window, text="Yes", command=lambda: clear_entries(conf_window))
+    do_cancel = ttk.Button(conf_window, text="No", command=lambda: conf_window.destroy())
+    confirm_text = ttk.Label(conf_window, text="Are you sure you want to "+msg)
+    confirm_text.grid(row=0, column=0, columnspan=2)
+    do_confirm.grid(row=1, column=1)
+    do_cancel.grid(row=1, column=0)
 
 def save_file():
     text_in = sanitize_text(entry_box.get("0.0", "end").upper())
@@ -187,6 +205,7 @@ def verify_input(key_input = False):
     else:
         save_button['state'] = DISABLED
 
+
 ### UI ###
 root = Tk()
 
@@ -204,10 +223,10 @@ playback_frame = ttk.LabelFrame(content, text="Direct Audio Output:")
 
 filename_box = ttk.Entry(options_frame, textvariable=filename)
 filename_label = ttk.Label(options_frame, text= "File Name:")
-clear_button = ttk.Button(options_frame, command=clear_entries, text="Clear")
+clear_button = ttk.Button(options_frame, command=lambda: confirm_clear("clear inputs?"), text="Clear")
 save_button = ttk.Button(options_frame, command=save_file, text="Save", state="disabled")
 
-play_button = ttk.Button(playback_frame, text="Play", state="disabled")
+play_button = ttk.Button(playback_frame, text="Play", command=lambda: encoders[baud_rate.get()].play_audio_data(sanitize_text(entry_box.get(0.0, "end").upper())))
 stop_button = ttk.Button(playback_frame, text="Stop", state="disabled")
 
 baud_45 = ttk.Radiobutton(baud_frame, text="45.5", variable=baud_rate, value = 1)
