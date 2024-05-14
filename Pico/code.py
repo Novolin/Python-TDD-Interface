@@ -24,7 +24,7 @@ serial = usb_cdc.console
 
 enable_terminal = True
 
-serial_text_buffer = "\n"
+serial_text_buffer = "\n\r"
 serial_max_length = 24
 
 def send_serial_buff():

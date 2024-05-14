@@ -1,6 +1,4 @@
- # TODO: EVERYTHING
-
-# this is the gui version!
+# shifting to an object based option since that's more managable in some ways
 
 from tkinter import Tk
 from tkinter import *
@@ -9,17 +7,7 @@ import textwrap
 from pydub import AudioSegment 
 
 
-
-bit_1_50 = AudioSegment.from_file("wav/tones/1400.wav", format = "wav")
-bit_0_50 = AudioSegment.from_file("wav/tones/1800.wav", format = "wav")
-bit_1_45 = AudioSegment.from_file("wav/tones/1400_22.wav", format = "wav")
-bit_0_45 = AudioSegment.from_file("wav/tones/1800_22.wav", format = "wav")
-
-# Storage for the data in memofy, rather than doing it in runtime
-audio_data = {"LTRS":{},
-        "FIGS":{}
-        }
-
+# Character encodings/list
 LTRS = (
     "\b",
     "E",
@@ -90,14 +78,15 @@ FIGS = (
     "LTRS",
 )
 
-def make_byte_audio(data):
-    if baud_rate.get() == 50:
-        bit_0 = bit_0_50
-        bit_1 = bit_1_50
-    else:
-        bit_0 = bit_0_45
-        bit_1 = bit_1_45
+def make_byte_audio(data, rate):
     # Takes a 5 bit int, returns a TTY compatible audio tone
+    if rate == 50:
+        bit_0 = AudioSegment.from_file("wav/tones/1800.wav", format = "wav")
+        bit_1 = AudioSegment.from_file("wav/tones/1400.wav", format = "wav")
+    else:
+        bit_0 = AudioSegment.from_file("wav/tones/1800_22.wav", format = "wav")
+        bit_1 = AudioSegment.from_file("wav/tones/1400_22.wav", format = "wav")
+
     out_audio = AudioSegment.empty()
     out_audio += bit_0 # Start bit
     for i in range(5):
@@ -110,31 +99,6 @@ def make_byte_audio(data):
         out_audio += bit_1
     out_audio += AudioSegment.silent(50) #50 ms anti-echo
     return out_audio
-
-def make_message_audio(message):
-
-    out_wav = AudioSegment.silent(100) # Add a small silence at the start of the byte
-    ltrs_used = True
-    out_wav += audio_data["LTRS"]["LTRS"] 
-    for letter in message:
-        if letter in LTRS:
-            if not ltrs_used:
-                out_wav += audio_data["LTRS"]["LTRS"]
-                ltrs_used = True
-            out_wav += audio_data["LTRS"][letter]
-        else:
-            if ltrs_used:
-                out_wav += audio_data["LTRS"]["FIGS"]
-                ltrs_used = False
-            out_wav += audio_data["FIGS"][letter]
-
-    return out_wav
-
-def load_audio_files():
-    for i in LTRS:
-        audio_data["LTRS"][i] = make_byte_audio(LTRS.index(i))
-    for i in FIGS: # I know repeating this is less efficient than copying it over somehow, but this is easier to write
-        audio_data["FIGS"][i] = make_byte_audio(FIGS.index(i))
 
 def sanitize_text(in_string):
     out_string = ""
@@ -149,18 +113,60 @@ def sanitize_text(in_string):
 
     return out_string
 
+class BaudotEncoder:
+    # Class to encode outgoing data
+    def __init__(self, baud_rate):
+        self.baud_rate = baud_rate
+        self.audio_data = {"LTRS":{},
+            "FIGS":{}
+            }
+        for i in LTRS:
+            self.audio_data["LTRS"][i] = make_byte_audio(LTRS.index(i), baud_rate)
+        for i in FIGS:
+            self.audio_data["FIGS"][i] = make_byte_audio(FIGS.index(i), baud_rate)
+        self.assert_ltrs = make_byte_audio(0b11111, baud_rate)
+        self.assert_figs = make_byte_audio(0b11011, baud_rate)
+        self.last_assert_type = "LTRS"
+        self.last_assert_at = 99
+
+    def make_message_audio(self, message):
+        out_wav = AudioSegment.silent(150) # Add a small silence at the start of the byte
+        out_wav += self.audio_data["LTRS"]["LTRS"] 
+        for letter in message:
+            if letter in LTRS:
+                if self.last_assert_type != "LTRS" or self.last_assert_at > 9:
+                    out_wav += self.assert_ltrs
+                    self.last_assert_at = 0
+                    self.last_assert_type = "LTRS"
+                out_wav += self.audio_data["LTRS"][letter]
+                self.last_assert_at += 1
+            else:
+                if self.last_assert_type != "FIGS" or self.last_assert_at > 9:
+                    out_wav +=  self.assert_figs
+                    self.last_assert_at = 0
+                    self.last_assert_type = "FIGS"
+                out_wav += self.audio_data["FIGS"][letter]
+                self.last_assert_at += 1
+
+        return out_wav
+
+class BaudotDecoder:
+    # Object to decode incoming audio data
+    def __init__(self, rate):
+        self.baud_rate = rate
+
+encoders = [BaudotEncoder(50), BaudotEncoder(45)]
 def clear_entries():
     # TODO add a prompt?
     entry_box.delete("1.0", "end" )
 
 
 def save_file():
-    load_audio_files()
     text_in = sanitize_text(entry_box.get("0.0", "end").upper())
     #TODO: check for blank or overlapping file names
     outname = "wav/output/" + filename.get() + ".wav"
 
-    audio_to_output = make_message_audio(text_in)
+    audio_to_output = encoders[baud_rate.get()].make_message_audio(text_in)
     audio_to_output.export(outname, format = "wav")
 
 def preview_text():
@@ -187,7 +193,7 @@ root = Tk()
 limit_chars = BooleanVar(value = True)
 skip_bad = BooleanVar(value=True)
 filename = StringVar(value="")
-baud_rate = IntVar(value=50)
+baud_rate = IntVar(value=0)
 preview = StringVar(value="")
 
 content = ttk.Frame(root, padding=(5,5,10,10))
@@ -204,8 +210,8 @@ save_button = ttk.Button(options_frame, command=save_file, text="Save", state="d
 play_button = ttk.Button(playback_frame, text="Play", state="disabled")
 stop_button = ttk.Button(playback_frame, text="Stop", state="disabled")
 
-baud_45 = ttk.Radiobutton(baud_frame, text="45.5", variable=baud_rate, value = 45)
-baud_50 = ttk.Radiobutton(baud_frame, text="50", variable=baud_rate, value = 50)
+baud_45 = ttk.Radiobutton(baud_frame, text="45.5", variable=baud_rate, value = 1)
+baud_50 = ttk.Radiobutton(baud_frame, text="50", variable=baud_rate, value = 0)
 bad_box = ttk.Checkbutton(options_frame, text="Replace Unsupported\nCharacters", variable= skip_bad, onvalue=True)
 
 entry_box = Text(content, width=25)

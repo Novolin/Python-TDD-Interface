@@ -1,10 +1,13 @@
+V0.04:
+- Added direct playback support via simpleaudio
+- Rewrote to object-based system, for easier switching between baud rates
+- Began work for some kind of decoding system
+
+
 V0.03a:
 - Tweaked UI:
     Added text preview 
     Blocked saving blank files/filenames
-
-
-
 
 V0.03:
 - started tracking changes
