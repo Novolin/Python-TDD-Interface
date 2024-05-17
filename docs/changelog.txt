@@ -1,11 +1,11 @@
 V0.04:
 - Added direct playback support via simpleaudio
 - Rewrote to object-based system, for easier switching between baud rates
-- Began work for some kind of decoding system
+- Began work for some kind of decoding system (mostly research atm)
 - Added confirmation dialog for clearing input
 - Changed newline behaviour (\r instead of \n, should play nicer with the printer? will need some testing)
-
-
+- Fixed harsh transition on 45.5 baud 
+- Added confirmation dialog for when file saves (todo: make things prettier)
 
 V0.03a:
 - Tweaked UI:
