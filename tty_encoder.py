@@ -186,6 +186,8 @@ class BaudotDecoder:
 
 
 encoders = [BaudotEncoder(50), BaudotEncoder(45)]
+
+## UI STUFF ##
 def clear_entries(calling_window):
     entry_box.delete("1.0", "end" )
     preview_text()

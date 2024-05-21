@@ -11,7 +11,7 @@ import baudot_tty as bd # Wow!! Importing code makes it way less messy! Who woul
 serial = usb_cdc.data
 
 enable_terminal = True
-serial_text_buffer = "\n" # Use a newline character as default to ensure that it prints properly
+serial_text_buffer = "\n\r" # Use a newline character as default to ensure that it prints properly
 
 max_line_length = 24 # +1 because newline!!!!
 
@@ -31,7 +31,7 @@ def send_serial_buff():
     global serial_text_buffer
     print(serial_text_buffer)
     bd.send_message(serial_text_buffer)
-    serial_text_buffer = "\n"
+    serial_text_buffer = "\n\r"
 
 
 if usb_cdc.Serial.connected:
@@ -46,4 +46,4 @@ while enable_terminal:
             if len(serial_text_buffer) > serial_max_length:
                 send_serial_buff()
 
-
+# idk how doable it is to do fsk decoding on a pico if i dont know how to do it on a full ass pc yet lmao
