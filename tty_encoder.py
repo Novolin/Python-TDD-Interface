@@ -1,4 +1,8 @@
-# shifting to an object based option since that's more managable in some ways
+###############################
+##  GUI-BASED TDD INTERFACE  ##
+##                           ##
+##  VERSION 0.04a  MAY 2024  ##
+###############################
 
 from tkinter import Tk
 from tkinter import *
@@ -108,8 +112,8 @@ def sanitize_text(in_string):
                 out_string += " "
         else:
             out_string += l
-    # now we do weird line shit to make it play nice with a 25 character printer lmao
-    out_string = "\r".join("\r".join(textwrap.wrap(x, 25)) for x in out_string.splitlines())
+    # now we do weird line shit to make it play nice with a 24 character printer lmao
+    out_string = "\n\r".join("\r".join(textwrap.wrap(x, 24)) for x in out_string.splitlines())
 
     return out_string
 
@@ -226,7 +230,7 @@ def show_success_dialog():
 
 def preview_text():
     text_preview = sanitize_text(entry_box.get(0.0,"end").upper())
-    preview.set(text_preview)
+    preview.set(text_preview.replace("\n\r", "\n"))
 
 
 def verify_input(key_input = False):

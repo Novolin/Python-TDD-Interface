@@ -1,3 +1,7 @@
+V0.04a:
+- Fixed line length (I knew it was 24, why did I type 25????)
+- Tweaked newlines in preview
+
 V0.04:
 - Added direct playback support via simpleaudio
 - Rewrote to object-based system, for easier switching between baud rates
