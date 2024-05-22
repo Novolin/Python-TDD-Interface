@@ -6,8 +6,9 @@ import numpy as np
 
 
 class AudioReader:
-    def __init__(self, file_name):
+    def __init__(self, file_name, baudrate):
         self.audfile = wave.open(file_name, "rb")
+        self.baudrate = baudrate
 
     def skip_to_next_audio(self):
         # Moves the cursor to the next frame with any audio data, returns the frame it starts.
