@@ -38,6 +38,13 @@ To use discrete .wav files for each message, use tty_encoder.py. I'll write more
 - If pydub isn't happy with ffmpeg/codec packs, it will throw errors on launch. Exports will still work.
 
 # Changelog:
+\(See docs/changelog.txt for detailed information\)
+## V0.04:
+* Added direct playback option
+* Changed "\n" to "\n\r" to properly do line breaks on printing systems
+* Restructured code to be object-based
+* Fixed the audio clicking on 45.5 Baud
+
 ## V0.03:
 * Fixed byte-flipping issue with FSK encoding
 * Made a GUI for the encoding application.
