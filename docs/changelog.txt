@@ -1,3 +1,8 @@
+V0.5:
+- Added decoding! Hooray!
+- Only works on .wav files, less hooray!
+- next stop: streaming audio somehow?
+
 V0.04a:
 - Fixed line length (I knew it was 24, why did I type 25????)
 - Tweaked newlines in preview

@@ -8,8 +8,11 @@ from tkinter import Tk
 from tkinter import *
 from tkinter import ttk
 import textwrap
+import numpy as np
 from pydub import AudioSegment 
 import simpleaudio as sa
+import numpy as np
+import aubio
 
 
 # Character encodings/list

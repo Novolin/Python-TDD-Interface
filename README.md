@@ -21,14 +21,16 @@ To use discrete .wav files for each message, use tty_encoder.py. I'll write more
     * handles audio encoding for wav files, not needed for Pico
 * [SimpleAudio](https://simpleaudio.readthedocs.io/en/latest/)
     * Audio playback for direct data transfer, again, not for Pico
+* [Aubio](www.google.com)
+    * Decoding audio data
 
 # Known Issues:
 ## Major issues:
 * Hardware ain't workin (Pico)
     - Waiting on parts
 * Documentation incomplete
-* Decoding not implemented
-    * I know *what* to do, but not *how* to do it, yet!
+* decoding is hilariously broken
+
 
 ## Tweaks:
 - UI needs polish
