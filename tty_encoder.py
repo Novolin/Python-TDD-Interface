@@ -85,27 +85,7 @@ FIGS = (
     "LTRS",
 )
 
-def make_byte_audio(data, rate):
-    # Takes a 5 bit int, returns a TTY compatible audio tone
-    if rate == 50:
-        bit_0 = AudioSegment.from_file("wav/tones/1800.wav", format = "wav")
-        bit_1 = AudioSegment.from_file("wav/tones/1400.wav", format = "wav")
-    else:
-        bit_0 = AudioSegment.from_file("wav/tones/1800_22.wav", format = "wav")
-        bit_1 = AudioSegment.from_file("wav/tones/1400_22.wav", format = "wav")
 
-    out_audio = AudioSegment.empty()
-    out_audio += bit_0 # Start bit
-    for i in range(5):
-        if data & 0b1:
-            out_audio += bit_1
-        else:
-            out_audio += bit_0
-        data = data >> 1
-    while len(out_audio)< 300:
-        out_audio += bit_1
-    out_audio += AudioSegment.silent(50) #50 ms anti-echo
-    return out_audio
 
 def sanitize_text(in_string):
     out_string = ""
@@ -128,9 +108,9 @@ class BaudotEncoder:
             "FIGS":{}
             }
         for i in LTRS:
-            self.audio_data["LTRS"][i] = make_byte_audio(LTRS.index(i), baud_rate)
+            self.audio_data["LTRS"][i] = self.make_byte_audio(LTRS.index(i), baud_rate)
         for i in FIGS:
-            self.audio_data["FIGS"][i] = make_byte_audio(FIGS.index(i), baud_rate)
+            self.audio_data["FIGS"][i] = self.make_byte_audio(FIGS.index(i), baud_rate)
         self.assert_ltrs = make_byte_audio(0b11111, baud_rate)
         self.assert_figs = make_byte_audio(0b11011, baud_rate)
         self.last_assert_type = "LTRS"
@@ -138,8 +118,28 @@ class BaudotEncoder:
         self.audio_player = False
         self.export_progress = 0 # how many characters have been exported to file
 
+    def make_byte_audio(data, rate):
+        # Takes a 5 bit int, returns a TTY compatible audio tone
+        if rate == 50:
+            bit_0 = AudioSegment.from_file("wav/tones/1800.wav", format = "wav")
+            bit_1 = AudioSegment.from_file("wav/tones/1400.wav", format = "wav")
+        else:
+            bit_0 = AudioSegment.from_file("wav/tones/1800_22.wav", format = "wav")
+            bit_1 = AudioSegment.from_file("wav/tones/1400_22.wav", format = "wav")
+
+        out_audio = AudioSegment.empty()
+        out_audio += bit_0 # Start bit
+        for i in range(5):
+            if data & 0b1:
+                out_audio += bit_1
+            else:
+                out_audio += bit_0
+            data = data >> 1
+        return out_audio
+
+
     def make_message_audio(self, message):
-        out_wav = AudioSegment.silent(150) # Add a small silence at the start of the byte
+        out_wav = AudioSegment.silent(150) # Add a small silence at the start of the byte, in case your connection sucks
         out_wav += self.audio_data["LTRS"]["LTRS"] 
         for letter in message:
             if letter in LTRS:
@@ -156,6 +156,8 @@ class BaudotEncoder:
                     self.last_assert_type = "FIGS"
                 out_wav += self.audio_data["FIGS"][letter]
                 self.last_assert_at += 1
+        for i in range(7): # add anti-echo, just in case
+            out_wav += AudioSegment.from_file("wav/tones/1400.wav", format = "wav")
         return out_wav
     
     def play_audio_data(self, message):

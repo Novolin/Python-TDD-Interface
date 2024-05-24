@@ -2,6 +2,7 @@ V0.5:
 - Added decoding! Hooray!
 - Only works on .wav files, less hooray!
 - next stop: streaming audio somehow?
+- Properly conform to the standards of data transmission (don't need breaks between characters!!!)
 
 V0.04a:
 - Fixed line length (I knew it was 24, why did I type 25????)
