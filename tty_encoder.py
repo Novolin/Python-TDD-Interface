@@ -111,14 +111,14 @@ class BaudotEncoder:
             self.audio_data["LTRS"][i] = self.make_byte_audio(LTRS.index(i), baud_rate)
         for i in FIGS:
             self.audio_data["FIGS"][i] = self.make_byte_audio(FIGS.index(i), baud_rate)
-        self.assert_ltrs = make_byte_audio(0b11111, baud_rate)
-        self.assert_figs = make_byte_audio(0b11011, baud_rate)
+        self.assert_ltrs = self.make_byte_audio(0b11111, baud_rate)
+        self.assert_figs = self.make_byte_audio(0b11011, baud_rate)
         self.last_assert_type = "LTRS"
         self.last_assert_at = 0
         self.audio_player = False
         self.export_progress = 0 # how many characters have been exported to file
 
-    def make_byte_audio(data, rate):
+    def make_byte_audio(self, data, rate):
         # Takes a 5 bit int, returns a TTY compatible audio tone
         if rate == 50:
             bit_0 = AudioSegment.from_file("wav/tones/1800.wav", format = "wav")

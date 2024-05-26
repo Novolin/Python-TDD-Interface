@@ -74,13 +74,18 @@ FIGS = (
 )
 
 class AudioReader:
-    def __init__(self, file_name, baudrate):
-        self.bit_size = int(44100/baudrate)
-        self.src = aubio.source(file_name, hop_size = self.bit_size)
+    def __init__(self, baudrate):
+        if baudrate == 50:
+            self.bit_size = 882
+        else:
+            self.bit_size = 970
+        self.src = False
         self.pitch = aubio.pitch(hop_size = self.bit_size)
         self.byte_length = self.bit_size * 7 # 5 bit byte + start and stop bits.
         self.rawdata = []
         
+    def set_input_source(self, filename):
+        self.src = aubio.source(filename, hop_size = self.bit_size)
 
     def get_data_packets(self):
         # take the audio and pull out the data packets:
@@ -109,8 +114,11 @@ class AudioReader:
                 break
 
     def get_as_text(self):
-        if self.rawdata == []:
+        if not self.src: # if file isn't set
+            print("Error: Select a file to read")
             return False
+        if self.rawdata == []:
+            self.get_data_packets()
         out_str = ""
         ltrs = True
         for i in self.rawdata:
@@ -138,14 +146,3 @@ class AudioReader:
 
         return out_str
 
-    
-filename = "wav/output/HELLO_50.wav"
-
-test = AudioReader(filename, 50)
-
-test.get_data_packets()
-
-
-print(test.get_as_text())
-
-    

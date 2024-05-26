@@ -3,22 +3,8 @@
 import time
 import board
 import usb_cdc 
-import baudot_tty as bd # Wow!! Importing code makes it way less messy! Who woulda thunk!
+import baudot_tty as bd
 
-
-
-
-serial = usb_cdc.data
-
-enable_terminal = True
-serial_text_buffer = "\n\r" # Use a newline character as default to ensure that it prints properly
-
-max_line_length = 24 # +1 because newline!!!!
-
-
-
-
-import usb_cdc
 
 serial = usb_cdc.console
 
