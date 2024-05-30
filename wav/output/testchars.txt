@@ -1,4 +1,4 @@
-"TESTOUT.WAV" should output the following:
+"testchars_XX.WAV" should output the following:
 
 ABCDEFGHIJKLM
 NOPQRSTUVWXYZ

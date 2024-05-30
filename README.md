@@ -22,19 +22,18 @@ To use discrete .wav files for each message, use tty_encoder.py. I'll write more
 * [SimpleAudio](https://simpleaudio.readthedocs.io/en/latest/)
     * Audio playback for direct data transfer, again, not for Pico
 
+
 # Known Issues:
 ## Major issues:
 * Hardware ain't workin (Pico)
     - Waiting on parts
 * Documentation incomplete
-* Decoding not implemented
-    * I know *what* to do, but not *how* to do it, yet!
+* Can't decode 45.5 baud properly
+    * 45.5 encoding may also be broken?
+
 
 ## Tweaks:
 - UI needs polish
-- Data packet length needs some tweaking ( make sure each packet is 300ms?)
-- files need cleanup
-- harsh transitions between bits in 45.5 baud
 - If pydub isn't happy with ffmpeg/codec packs, it will throw errors on launch. Exports will still work.
 
 # Changelog:
