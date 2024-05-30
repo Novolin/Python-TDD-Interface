@@ -1,0 +1,7 @@
+wav/output/testchars_45.wav:
+ABCDEFGHIJKLM
+NOPQRSTUVWXYZ
+1 2 3 4WWEWUW WTW WKATDEBZOWAMEN
+wav/output/HELLO_45.wav:
+ ELLO WOTD!
+wav/output/ryryry.wav:
