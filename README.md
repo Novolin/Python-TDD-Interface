@@ -38,6 +38,12 @@ To use discrete .wav files for each message, use tty_encoder.py. I'll write more
 
 # Changelog:
 \(See docs/changelog.txt for detailed information\)
+
+## V0.5:
+* Built script for FSK decoding (reader.py) 
+* Fixed bit order issues (again? I hope?)
+* Other minor fixes. 
+
 ## V0.04:
 * Added direct playback option
 * Changed "\n" to "\n\r" to properly do line breaks on printing systems
