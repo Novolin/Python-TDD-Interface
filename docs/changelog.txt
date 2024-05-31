@@ -1,3 +1,9 @@
+V0.5a:
+- Un-broke bit order, again. I swear, I'll remember how to do this someday.
+- Fixed sticky clear window
+- Fixed missing dependency 
+- Changed default encoding to 45.5 - 50 baud is only used by like two countries. 
+
 V0.5:
 - Added decoding! Hooray!
 - Only works on .wav files, less hooray!

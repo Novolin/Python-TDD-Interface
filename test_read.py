@@ -1,8 +1,8 @@
 import reader
 
-file_list = ["wav/output/testchars_45.wav", "wav/output/HELLO_45.wav", "wav/output/ryryry.wav"]
+file_list = ["wav/output/testchars_50.wav", "wav/output/HELLO_50.wav", "wav/output/ryryry.wav"]
 
-test_reader = reader.TDDReader(45)
+test_reader = reader.TDDReader(50)
 
 out_file = open("testout.txt", "w")
 

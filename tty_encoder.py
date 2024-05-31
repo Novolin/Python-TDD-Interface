@@ -1,7 +1,7 @@
 ###############################
 ##  GUI-BASED TDD INTERFACE  ##
 ##                           ##
-##  VERSION 0.5    MAY 2024  ##
+##  VERSION 0.5a   MAY 2024  ##
 ###############################
 
 from tkinter import Tk
@@ -9,7 +9,7 @@ from tkinter import *
 from tkinter import ttk
 from pydub import AudioSegment 
 import simpleaudio as sa
-
+import textwrap
 
 # Character encodings/list
 LTRS = (
@@ -92,7 +92,7 @@ def sanitize_text(in_string):
         else:
             out_string += l
     # now we do weird line shit to make it play nice with a 24 character printer lmao
-    out_string = "\n\r".join("\r".join(textwrap.wrap(x, 24)) for x in out_string.splitlines())
+    out_string = "\n\r".join("\n".join(textwrap.wrap(x, 24)) for x in out_string.splitlines())
 
     return out_string
 
@@ -126,12 +126,12 @@ class BaudotEncoder:
         out_audio = AudioSegment.empty()
         out_audio += bit_0 # Start bit
         for i in range(5):
-            if data & 0b10000:
+            if data & 0b1:
                 out_audio += bit_1
             else:
                 out_audio += bit_0
-            data = data << 1
-        out_audio += bit_1 + bit_1[0:10] # Stop bit, if it's 45.5, we will eat the 1ms of bad data.
+            data = data >> 1
+        out_audio += bit_1 + bit_1[0:11] # Stop bit, 1ms extra should be ok with the 50 baud?
         return out_audio
 
 
@@ -153,6 +153,8 @@ class BaudotEncoder:
                     self.last_assert_type = "FIGS"
                 out_wav += self.audio_data["FIGS"][letter]
                 self.last_assert_at += 1
+            # DEBUG: Try adding a little anti echo between each character?
+            out_wav += AudioSegment.from_file("wav/tones/1400.wav", format = "wav")
         for i in range(7): # add anti-echo, just in case
             out_wav += AudioSegment.from_file("wav/tones/1400.wav", format = "wav")
         return out_wav
@@ -164,21 +166,24 @@ class BaudotEncoder:
 
 
 # import an encoder here once you feel like fucking with gui stuff
+# also once you fix 45/50 baud issues
 
 
 encoders = [BaudotEncoder(50), BaudotEncoder(45)]
 
 ## UI STUFF ##
-def clear_entries(calling_window):
+def clear_entries():
     entry_box.delete("1.0", "end" )
     preview_text()
-    calling_window.destroy()
+    root.winfo_children()[1].destroy()
+    
+
     
 
 def confirm_clear(msg):
     conf_window = Toplevel(root)
     conf_window.title = msg
-    do_confirm = ttk.Button(conf_window, text="Yes", command=lambda: clear_entries(conf_window))
+    do_confirm = ttk.Button(conf_window, text="Yes", command= clear_entries)
     do_cancel = ttk.Button(conf_window, text="No", command=lambda: conf_window.destroy())
     confirm_text = ttk.Label(conf_window, text="Are you sure you want to "+msg)
     confirm_text.grid(row=0, column=0, columnspan=2)
@@ -230,7 +235,7 @@ root = Tk()
 limit_chars = BooleanVar(value = True)
 skip_bad = BooleanVar(value=True)
 filename = StringVar(value="")
-baud_rate = IntVar(value=0)
+baud_rate = IntVar(value=1)
 preview = StringVar(value="")
 
 content = ttk.Frame(root, padding=(5,5,10,10))

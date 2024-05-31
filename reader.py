@@ -1,6 +1,6 @@
 ######################
 # Baudot FSK Decoder #
-#    Version 1.0     #
+#    Version 1.0a    #
 ######################
 
 
@@ -105,16 +105,17 @@ class TDDReader:
         out_val = 0b00000
         if self.verbose:
             print(".", end="")
-        data_start = 0
-        for i in range(6):
-            out_val = out_val << 1
+        data_start = self.bit_size # skip the start bit
+        for i in range(5):
+            out_val = out_val >> 1
             if self.get_frequency(data[data_start:data_start + self.bit_size]) == 1400:
-                to_add = 1
+                to_add = 0b10000
             else:
                 to_add = 0
             out_val = out_val | to_add
             
             data_start += self.bit_size
+
         return out_val
 
     def get_data_start(self, data) -> int:
