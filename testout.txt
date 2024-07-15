@@ -1,9 +1,0 @@
-wav/output/testchars_50.wav:
-ABCDEFGHIJKLM
-NOPQRSTUVWXYZ
-1 2 3 4 5 6 7 8 9 0
-()-=+!$/?.,';":
-wav/output/HELLO_50.wav:
-HELLO WORLD!
-wav/output/ryryry.wav:
-VDFWPCGG

@@ -1,0 +1,22 @@
+Since we count mean passes instead of proper FFT or other intense stuff, there's probably a very short (4 ms?) range where the frequency will be measured over a rising/falling edge
+
+I haven't fixed it because I don't know how big of a deal it will be, but I'd probably do something like this:
+
+get a few samples of what a known good frequency would show as a count
+figure out the deviation from the norm
+add a "Dead zone" in the middle of the count, where it will re-poll the analog input
+
+e.g.:
+
+if count > 30 and count < 34:
+    recount()
+
+this should force us later in the bit sequence to end up on mostly high or low, making a valid bit read.
+
+I think the bit timing should only be an issue if we read too early? otherwise I think there's enough of a buffer in the sampling rate to make it work.
+
+
+I'm also unsure of how to handle breaking the monitor loop to send data. This may be a case for asyncio or another library, but I have some testing to do before i can tell if it's even an issue.
+It's entirely possible that the pico will handle whatever I need to do fast enough to be able to just detect a carriage return, then process over the line feed character, and start reading again???
+
+really i should just put on the interrupt tone, but we'll cross that bridge when we get there.

@@ -1,3 +1,7 @@
+V0.6:
+- Pico-based encoding and decoding! See the /Pico folder for the files!
+
+
 V0.5a:
 - Un-broke bit order, again. I swear, I'll remember how to do this someday.
 - Fixed sticky clear window
