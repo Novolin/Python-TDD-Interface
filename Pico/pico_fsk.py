@@ -19,7 +19,7 @@ class TTYReader:
         if baudrate == 45:
             self.bit_time = 22
         self.silence_level = 30
-        self.noise_floor = 10
+        self.noise_floor = 100
         self.await_bit = True #are we waiting on the line to do something
         self.calibrate()
         self.received_string = ""
@@ -123,6 +123,7 @@ class TTYReader:
         self.analog_input.readinto(self.input_buffer)
         self.silence_level = sum(self.input_buffer)//100 # we know we have 100 samples, and don't need the precision of a proper decimal
         if self.silence_level > 3000 or self.silence_level == 0:
+            print(self.silence_level)
             print("Calibration error! Aborting!")
             return False
         else: 

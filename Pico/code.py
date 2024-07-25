@@ -10,16 +10,5 @@ import baudot_tty
 
 
 
-recievePin = board.A3
-
-reader = pico_fsk.TTYReader2(recievePin, 50)
-
-reader.calibrate()
-reader.init_monitor()
-
-while True:
-    while reader.await_bit:
-        if reader.check_for_input():
-            reader.await_bit = False
-    #bit found, let's decode:
-
+pass # For now I'm going to focus on setting up a test dealio before actually making a real program
+# note: the red wire outputs better audio!

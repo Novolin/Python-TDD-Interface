@@ -14,7 +14,7 @@ import board
 from audiocore import RawSample
 import audiopwmio
 
-class TTY_TRANSMITTER:
+class TTYTransmitter:
     def __init__(self, output_pin):
         # constants for sine wave generation
         SIN_LENGTH = 100  # more is less choppy
@@ -25,14 +25,14 @@ class TTY_TRANSMITTER:
         sine_wave = [
             int(SIN_OFFSET + SIN_AMPLITUDE * math.sin(DELTA_PI * i)) for i in range(SIN_LENGTH)
         ]
-        tones = (
+        self.tones = (
             RawSample(array.array("H", sine_wave), sample_rate=1800 * SIN_LENGTH),  # Bit 0
             RawSample(array.array("H", sine_wave), sample_rate=1400 * SIN_LENGTH),  # Bit 1
         )
 
-        self.bit_0 = tones[0]
-        self.bit_1 = tones[1]
-        self.carrier = tones[1]
+        self.bit_0 = self.tones[0]
+        self.bit_1 = self.tones[1]
+        self.carrier = self.tones[1]
 
 
         self.char_pause = 0.1  # pause time between chars, set to 0 for fastest rate possible
@@ -152,7 +152,7 @@ class TTY_TRANSMITTER:
 
 
     def baudot_start(self):
-        self.baudot_bit(bit_0)
+        self.baudot_bit(self.bit_0)
 
 
     def baudot_stop(self):
@@ -171,33 +171,33 @@ class TTY_TRANSMITTER:
 
 
     def send_message(self, text):
-        global char_count, current_mode  # pylint: disable=global-statement
+        
         for char in text:
             if char not in self.LTRS and char not in self.FIGS:  # just skip unknown characters
                 # print("Unknown character:", char)
                 continue
 
-            if char not in current_mode:  # switch mode
-                if current_mode == self.LTRS:
+            if char not in self.current_mode:  # switch mode
+                if self.current_mode == self.LTRS:
                     # print("Switching mode to FIGS")
-                    current_mode = self.FIGS
-                    self.send_character(current_mode.index("FIGS"))
-                elif current_mode == self.FIGS:
+                    self.current_mode = self.FIGS
+                    self.send_character(self.current_mode.index("FIGS"))
+                elif self.current_mode == self.FIGS:
                     # print("Switching mode to LTRS")
-                    current_mode = self.LTRS
-                    self.send_character(current_mode.index("LTRS"))
+                    self.current_mode = self.LTRS
+                    self.send_character(self.current_mode.index("LTRS"))
             # Send char mode at beginning of message and every 72 characters
-            if char_count >= 72 or char_count == 0:
+            if self.char_count >= 72 or self.char_count == 0:
                 # print("Resending mode")
-                if current_mode == self.LTRS:
-                    self.send_character(current_mode.index("LTRS"))
-                elif current_mode == self.FIGS:
-                    self.send_character(current_mode.index("FIGS"))
+                if self.current_mode == self.LTRS:
+                    self.send_character(self.current_mode.index("LTRS"))
+                elif self.current_mode == self.FIGS:
+                    self.send_character(self.current_mode.index("FIGS"))
                 # reset counter
-                char_count = 0
+                self.char_count = 0
             print(char)
-            self.send_character(current_mode.index(char))
+            self.send_character(self.current_mode.index(char))
             time.sleep(self.char_pause)
             # increment counter
-            char_count += 1
+            self.char_count += 1
 
