@@ -1,17 +1,16 @@
-# Trying to redo the reading stuff using a different algorithm, that should hopefully allow for real-time decoding?
-
 import math
-import wave
-from time import monotonic_ns
 
 def goertzel(samples, sample_rate, *freqs):
     """
     Implementation of the Goertzel algorithm, useful for calculating individual
     terms of a discrete Fourier transform.
+
     `samples` is a windowed one-dimensional signal originally sampled at `sample_rate`.
+
     The function returns 2 arrays, one containing the actual frequencies calculated,
     the second the coefficients `(real part, imag part, power)` for each of those frequencies.
     For simple spectral analysis, the power is usually enough.
+
     Example of usage :
         
         freqs, results = goertzel(some_samples, 44100, (400, 500), (1000, 1100))
@@ -56,44 +55,46 @@ def goertzel(samples, sample_rate, *freqs):
         freqs.append(f * sample_rate)
     return freqs, results
 
-class Decoder:
-    def __init__(self, baudrate = 45):
-        self.baudrate = baudrate
-        self.noise_floor = 250 #(???)
-    
-    def decode_from_file(self, file):
-        # get samples from the file
-        samplerate = 0
-        samples_per_ms = 0 # how many samples in 1ms? idk if i need this, but we'll see
-        with wave.open(file) as audiofile:
-            samplerate = audiofile.getframerate()
-            samples_per_ms = samplerate / 1000 
-            return 
-        
+
+if __name__ == '__main__':
+    # quick test
+    import numpy as np
+    import matplotlib.pyplot as pylab
+
+    # generating test signals
+    SAMPLE_RATE = 10000
+    WINDOW_SIZE = 512
+    t = np.linspace(0, 1, SAMPLE_RATE)[:WINDOW_SIZE]
+    sine_wave = np.sin(2*np.pi*1400*t)
+    sine_wave = sine_wave * np.hamming(WINDOW_SIZE)
+    sine_wave2 = np.sin(2*np.pi*1800*t)
+    sine_wave2 = sine_wave2 * np.hamming(WINDOW_SIZE)
+
+    # applying Goertzel on those signals, and plotting results
+    freqs, results = goertzel(sine_wave, SAMPLE_RATE, (1300, 1900))
+
+    print(freqs)
+
+    pylab.subplot(2, 2, 1)
+    pylab.title('(1) Sine wave 440Hz + 1020Hz')
+    pylab.plot(t, sine_wave)
+
+    pylab.subplot(2, 2, 3)
+    pylab.title('(1) Goertzel Algo, freqency ranges : [400, 500] and [1000, 1100]')
+    pylab.plot(freqs, np.array(results)[:,2], 'o')
+    pylab.ylim([0,100000])
+
+    freqs, results = goertzel(sine_wave2, SAMPLE_RATE,(1300, 1900))
+
+    print(freqs)
+    pylab.subplot(2, 2, 2)
+    pylab.title('(2) Sine wave 660Hz + 1200Hz')
+    pylab.plot(t, sine_wave2)
+
+    pylab.subplot(2, 2, 4)
+    pylab.title('(2) Goertzel Algo, freqency ranges : [400, 500] and [1000, 1100]')
+    pylab.plot(freqs, np.array(results)[:,2], 'o')
+    pylab.ylim([0,100000])
 
 
-
-
-# testing below
-import wave
-import time
-
-testfile = "test/test.wav"
-
-outdata = []
-
-with wave.open(testfile) as audioFile:
-    freqlist = []
-    data = []
-    sample_rate = audioFile.getframerate()
-    samps_per_ms = sample_rate // 1000
-    read_frame = 0
-    #while read_frame < audioFile.getnframes():
-    read_frame += samps_per_ms * 10
-    samples = audioFile.readframes(samps_per_ms * 100) # 10ms of data
-    smalld = []
-    for i in samples:
-        smalld.append(i)
-    outdata = goertzel(smalld, sample_rate, (1300,1500), (1750, 1850))
-
-    
+    pylab.show()
