@@ -76,24 +76,43 @@ class Decoder:
 
 # testing below
 import wave
-import time
 
-testfile = "test/test.wav"
+
+testfile = "test/realhardware.wav"
 
 outdata = []
+byte_seq = []
 
 with wave.open(testfile) as audioFile:
-    freqlist = []
-    data = []
     sample_rate = audioFile.getframerate()
-    samps_per_ms = sample_rate // 1000
-    read_frame = 0
-    #while read_frame < audioFile.getnframes():
-    read_frame += samps_per_ms * 10
-    samples = audioFile.readframes(samps_per_ms * 100) # 10ms of data
-    smalld = []
-    for i in samples:
-        smalld.append(i)
-    outdata = goertzel(smalld, sample_rate, (1300,1500), (1750, 1850))
+    chunk_size = sample_rate // 100 # 10ms chunks?
+    print(sample_rate, chunk_size)
+    current_chunk = 0
+    
+    while current_chunk * chunk_size < audioFile.getnframes():
+        current_chunk += 1 # don't get stuck in a loop :)
+        chunk_goertzel = goertzel(audioFile.readframes(chunk_size), sample_rate, (1300,1500), (1700,1900))
+        freq_list = chunk_goertzel[0]
+        power_list = []
+        for i in chunk_goertzel[1]:
+            power_list.append(i[2])
+        top_power = max(power_list)
+        dominant = -1
+        if top_power > 1000000:
+            dominant = freq_list[power_list.index(max(power_list))]
+        if 1450 > dominant > 1351:
+            byte_seq.append(0)
+            print(dominant, current_chunk)
+        elif dominant > 1750:
+            byte_seq.append(1)
+            print(dominant, current_chunk)
+
+
+
+
+
+
+
+
 
     
