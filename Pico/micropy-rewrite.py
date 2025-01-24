@@ -76,17 +76,11 @@ FIGS = (
     "LTRS",
 )
 
+
+
+
+
 # Write some sine tables for our tones:
-'''
-spitballin:
-these tables will be duty cycle values for our waveforms, so we should make them 
-65535      1
-(65535/2)  0
-0         -1
-
-
-
-'''
 # constants for sine wave generation, copied from John Park's stuff for circuitpython
 
 SIN_LENGTH = 100  # more is less choppy
@@ -94,49 +88,82 @@ SIN_AMPLITUDE = 2 ** 15  # 0 (min) to 32768 (max)  made 2^15 to allow for maximu
 SIN_OFFSET = 32767.5  # for 16bit range, (2**16 - 1) / 2
 DELTA_PI = 2 * pi / SIN_LENGTH  # happy little constant
 
-sine_wave = [
+SINE_WAVE = [
     int(SIN_OFFSET + SIN_AMPLITUDE * sin(DELTA_PI * i)) for i in range(SIN_LENGTH)
 ]
 
-print(sine_wave) # TODO: MAKE A THING TO TRACK ALONG THE WAVE AS WE DO AUDIOS
+
+
+class ToneOutput: # only good to ~ 8khz!!!
+    def __init__(self, tone_freq, out_pin):
+        self.freq = tone_freq
+        self.output = PWM(out_pin, freq = 16000)  # if you need higher freq, change the freq here to adapt.
+        self.playing = False
+        self.step = 0 # Where in our sine table are we
+
+    def change_tone(self, new_freq):
+        self.freq = new_freq
+    
+
+    async def play_tone(self):
+        # will play (very slightly slower) than self.freq until otherwise stopped.
+        self.playing = True
+        while self.playing:
+            self.step += 1
+            self.output.duty_u16(SINE_WAVE[self.step])
+            
+            asyncio.sleep(1/(self.freq * SIN_LENGTH)) # wait for the next point. 
+        return # if we're not playing, we can end this task
+            
+    def stop_tone(self):
+        self.playing = False
+        # This should cause the while loop in play_tone() to end.
 
 class AudioCoupler:
     def __init__(self, out_pin, in_pin):
         self.sample_buffer = deque([0] * 100)
-        self.audio_out = PWM(out_pin, freq = 16000) # we're just doing tones, 16k is probably overkill lmao
+        self.audio_out = ToneOutput(1400, out_pin)
         self.audio_in = ADC(in_pin)
-        self.block_input = False # should we be emitting tones to stop more coming in?
+        self.block_input = False # should we tie up the line?
         self.noise_gate = 1024 # a margin to detect things are changing???
         self.zero_point = 0
         self.last_sample_time = time.ticks_us()
- 
-    async def read_buffer_sample(self):
-        # add the buffer sample to our deck, pop out whatever else was in it.
-        if time.ticks_diff(self.last_sample_time, time.ticks_us()) >=100: # if it's been at least 100 uS since our last sample
-            self.sample_buffer.popleft() # drop our old one
-            self.sample_buffer.append(self.audio_in.read_u16()) # read a new one
-            return True
-        return False # we have to wait for the next time to do it.
+        self.last_bit_start = False
+        self.outgoing_mesage_buffer = "" 
+        self.incoming_message_buffer = "" 
+        self.input_mode = LTRS
         
-
-    def get_samples(self):
-        # sample an analog pin over 10ms
-        sample_list = []
-        sample_end = time.ticks_us() + 10000
-        while time.ticks_diff(sample_end, time.ticks_us()) > 0:
-            sample_list.append(self.audio_in.read_u16())
-        return sample_list
-
+    def decode_byte(self, byte):
+        charout = self.input_mode[byte]
+        if charout == "LTRS":
+            self.input_mode = LTRS
+        elif charout == "FIGS":
+            self.input_mode = FIGS
+        else:
+            self.incoming_message_buffer += charout 
+        
+ 
+    def sample_into_buffer(self):
+        # Reads 10ms worth of data into a buffer
+        self.last_sample_time = time.ticks_ms()
+        while time.ticks_diff(self.last_sample_time, time.ticks_ms()) < 10: # Keep loopin til we've done this for 10ms
+            last_read = time.ticks_us()
+            self.sample_buffer.popleft() # dump the old sample
+            self.sample_buffer.append(self.audio_in.read_u16()) # add a new one
+            while time.ticks_diff(time.ticks_us(), last_read) < 10:
+                pass # wait for our next sample period. Should be ~10kHz
+            
+        
     def calibrate_audio_in(self):
         # Gets a baseline for background noise/etc. 
         bg_samples = self.get_samples()
         # set a noise threshold?
         self.zero_point = sum(bg_samples)/len(bg_samples)
-        self.noise_gate = self.zero_point + 1024 # idk what the correct number is
+        self.noise_gate = self.zero_point + 1024 # idk what the correct number for this is, i'll have to play around with it.
 
 
     def read_incoming_tone(self): # Very rudimentary tone analysis stuff.
-        tone_samples = self.get_samples()
+        tone_samples = list(self.sample_buffer)
         # let's assume the zero point is reasonably calibrated?
         look_for_positive = True
         zero_crossings = 0
@@ -155,8 +182,20 @@ class AudioCoupler:
         else:
             return 1
 
-    def read_data_byte(self, start_time):
+    def read_data_byte(self): # we will drop everything to run this because it is timing critical
         byte = 0
+        bitcount = 0:
+        while bitcount < 5:
+            self.last_bit_start = time.ticks_ms() 
+            self.sample_into_buffer() # should take ~10ms
+            byte = byte << 1 | self.read_incoming_tone()
+            bitcount += 1
+            while time.ticks_diff(time.ticks_ms(), self.last_bit_start) < 20: # each bit is 20 ms long
+                pass # just fuckin wait for another 10ms
+        
+        
+        
+
 
     async def run_audio_interface(self):
         while True:
@@ -164,5 +203,5 @@ class AudioCoupler:
                 # poll for incoming data:
                 if not self.read_incoming_tone():
                     #start bit! do a read loop.
-                    read_data_byte(start_time)
+                    read_data_byte()
 
