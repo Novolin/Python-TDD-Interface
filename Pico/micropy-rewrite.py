@@ -1,9 +1,10 @@
 # Trying to do stuff in micropython because it's a bit faster and I know it better now
 
-from machine import PWM, Pin, ADC #type: ignore 
+#from machine import PWM, Pin, ADC #type: ignore 
 import time
 import asyncio
 from collections import deque
+from math import sin, pi
 
 # Character encodings
 LTRS = (
@@ -84,10 +85,20 @@ these tables will be duty cycle values for our waveforms, so we should make them
 0         -1
 
 
-COMEDY OPTION: SQUARE WAVE?????
 
 '''
+# constants for sine wave generation, copied from John Park's stuff for circuitpython
 
+SIN_LENGTH = 100  # more is less choppy
+SIN_AMPLITUDE = 2 ** 15  # 0 (min) to 32768 (max)  made 2^15 to allow for maximum volume. 3.5v won't do a lot on this speaker.
+SIN_OFFSET = 32767.5  # for 16bit range, (2**16 - 1) / 2
+DELTA_PI = 2 * pi / SIN_LENGTH  # happy little constant
+
+sine_wave = [
+    int(SIN_OFFSET + SIN_AMPLITUDE * sin(DELTA_PI * i)) for i in range(SIN_LENGTH)
+]
+
+print(sine_wave) # TODO: MAKE A THING TO TRACK ALONG THE WAVE AS WE DO AUDIOS
 
 class AudioCoupler:
     def __init__(self, out_pin, in_pin):
