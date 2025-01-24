@@ -192,7 +192,7 @@ class AudioCoupler:
             bitcount += 1
             while time.ticks_diff(time.ticks_ms(), self.last_bit_start) < 20: # each bit is 20 ms long
                 pass # just fuckin wait for another 10ms
-        
+        return byte
         
         
 
@@ -203,5 +203,6 @@ class AudioCoupler:
                 # poll for incoming data:
                 if not self.read_incoming_tone():
                     #start bit! do a read loop.
-                    read_data_byte()
+                    self.decode_byte(self.read_data_byte()) 
+                    # rewrite this to handle more than one byte lmfau
 
