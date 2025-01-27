@@ -121,6 +121,7 @@ class ToneOutput: # only good to ~ 8khz!!!
 
 class AudioCoupler:
     def __init__(self, out_pin, in_pin):
+        self.active = False
         self.sample_buffer = deque([0] * 100)
         self.audio_out = ToneOutput(1400, out_pin)
         self.audio_in = ADC(in_pin)
@@ -143,6 +144,22 @@ class AudioCoupler:
             self.incoming_message_buffer += charout 
         
  
+    async def check_for_signal(self):
+        # Sample the line to see if we have any kind of noise coming in
+        start_sample = time.ticks_ms():
+        out_of_thresh_count = 0 # how many samples are outside of our threshold
+        while time.ticks_diff(start_sample, time.ticks_ms()) < 2: # just a tiny bit here
+            samp = self.audio_in.read_u16()
+            if samp > 32768 + self.noise_gate or samp < 32768 - self.noise_gate:
+                # if we're outside of our noise gate, add to a counter.
+                out_of_thresh_count +=1
+            asyncio.sleep(0.0001) # 100 us per sample should be ok to detect stuff?
+        if out_of_thresh_count > 5:
+            return True # we get signal
+        else:
+            return False # no signal 
+            
+
     def sample_into_buffer(self):
         # Reads 10ms worth of data into a buffer
         self.last_sample_time = time.ticks_ms()
@@ -198,11 +215,8 @@ class AudioCoupler:
 
 
     async def run_audio_interface(self):
-        while True:
+        self.active = True
+        while self.active: # give an option to kill the interface
             while not self.block_input:
                 # poll for incoming data:
-                if not self.read_incoming_tone():
-                    #start bit! do a read loop.
-                    self.decode_byte(self.read_data_byte()) 
-                    # rewrite this to handle more than one byte lmfau
-
+                if 
