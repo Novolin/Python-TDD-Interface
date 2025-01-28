@@ -215,22 +215,5 @@ class AudioCoupler:
         
         
 
-class BaudotOutput:
-    def __init__(self):
-        self.output_buffer = False
-        self.ready_to_output_event = asyncio.Event()
-        self.wait_lock = asyncio.Lock()
 
-    def buffer_string(self, string_to_buffer):
-        if string_to_buffer[-1] != "\n": # Ensure we are ending with a line feed.
-            string_to_buffer += "\n"
-        buff_arr = deque() # I think I can just make an empty deque?
-        for c in string_to_buffer:
-            if c in LTRS:
-                buf_arr.append(LTRS.index(c))
-            elif c in NUMS
-
-
-
-async def main():
-    lock = asyncio.Lock()
+    
