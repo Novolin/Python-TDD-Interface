@@ -214,9 +214,4 @@ class AudioCoupler:
         
 
 
-    async def run_audio_interface(self):
-        self.active = True
-        while self.active: # give an option to kill the interface
-            while not self.block_input:
-                # poll for incoming data:
-                if 
+    
