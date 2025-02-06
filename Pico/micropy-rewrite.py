@@ -100,6 +100,7 @@ class ToneOutput: # only good to ~ 8khz!!!
         self.output = PWM(out_pin, freq = 16000)  # if you need higher freq, change the freq here to adapt.
         self.playing = False
         self.step = 0 # Where in our sine table are we
+        self.allow_playback = asyncio.Lock()
 
     def change_tone(self, new_freq):
         self.freq = new_freq
@@ -133,6 +134,7 @@ class AudioCoupler:
         self.outgoing_mesage_buffer = "" 
         self.incoming_message_buffer = "" 
         self.input_mode = LTRS
+        self.allow_input = asyncio.Event()
         
     def decode_byte(self, byte):
         charout = self.input_mode[byte]
@@ -213,5 +215,22 @@ class AudioCoupler:
         
         
 
+class BaudotOutput:
+    def __init__(self):
+        self.output_buffer = False
+        self.ready_to_output_event = asyncio.Event()
+        self.wait_lock = asyncio.Lock()
 
-    
+    def buffer_string(self, string_to_buffer):
+        if string_to_buffer[-1] != "\n": # Ensure we are ending with a line feed.
+            string_to_buffer += "\n"
+        buff_arr = deque() # I think I can just make an empty deque?
+        for c in string_to_buffer:
+            if c in LTRS:
+                buf_arr.append(LTRS.index(c))
+            elif c in NUMS
+
+
+
+async def main():
+    lock = asyncio.Lock()
