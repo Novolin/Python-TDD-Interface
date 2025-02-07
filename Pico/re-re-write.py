@@ -117,8 +117,7 @@ class BaudotOutput:
         # Ensure we end with a newline
         if string_to_buffer[-1] != "\n":
             string_to_buffer += "\n"
-        
-        self.buffered_out.clear()
+    
         char_count = 0 # a counter to know when to reassert LTRS/FIGS
               
         for c in string_to_buffer: 
@@ -154,8 +153,8 @@ class BaudotOutput:
 
     async def play_data_tones(self, lock:asyncio.Lock): 
         # waits for i/o unlock, then plays data tones for the correct period
-        with lock:
-            while len(self.buffered_out > 0):
+        async with lock:
+            while len(self.buffered_out) > 0:
                 next_byte = self.buffered_out.popleft()
                 bitcount = 0
                 self.play_tone(20,_BAUDOT_ZERO) # start bit
@@ -170,23 +169,24 @@ class BaudotOutput:
 
 
 class BaudotInput:
-    def __init__(self, adc_pin, listen_event = receive_trigger):
+    def __init__(self, adc_pin, io_lock):
         self.line_in = ADC(adc_pin)
         self.read_mode = LTRS # default to reading in LTRS mode
         self.data_buffer = deque(()) # buffer for incoming data
-        self.allow_listen = listen_event
         self.noise_floor = 1024 # how much noise on the line before we detect signal
         self.active = False # are we currently listening to a tone
+        self.io_lock = io_lock
 
     async def listener(self):
-        await self.allow_listen.wait() # When we have the all clear to listen
+         # When we have the all clear to listen
         sample = self.line_in.read_u16()
         if sample > 32768 + self.noise_floor or sample < 32768 - self.noise_floor:
             bit_start = time.ticks_ms() # flag when it happened
             # we've tripped the noise floor, expect incoming signal.
             # monitor the freq until we hit the signal
             if self.sample_data_bit() == 0: # start bit detected!
-                pass # sample a full byte here.
+                async with self.io_lock:
+                    pass # read the data now!
 
     def sample_data_bit(self):
         # gets a single bit based off of a 5ms sample
@@ -239,3 +239,33 @@ class BaudotInput:
             bitcount += 1
             waiting_time = 20 + (20 * bitcount) - time.ticks_diff(byte_start, time.ticks_ms())
             
+    async def pull_data_buffer(self) -> str:
+        # if it's available, return teh buffered data
+        return ""
+
+class BaudotInterface:
+    def __init__(self, audio_in_pin, audio_out_pin):
+        self.incoming_buffer = ""
+        self.io_lock = asyncio.Lock() # stop input and output 
+        self.input_interface = BaudotInput(audio_in_pin, self.io_lock) #TODO: make this init an input obj
+        self.output_interface = BaudotOutput(audio_out_pin) #TODO: make this init an output obj
+
+    async def write(self, string):
+        # Push a string to the output buffer, and signal that we are ready to output data
+        # Maybe this is the best time to sanitize our inputs?
+        self.output_interface.buffer_string(string)
+        await self.output_interface.play_data_tones(self.io_lock)
+    
+    def read(self):
+        # Return the data that was in the buffer, and clear it.
+        output = self.incoming_buffer
+        self.incoming_buffer = ""
+        return output 
+    
+    async def pull_buffered_data(self):
+        # pull data from the input object
+        # awaitable because it may be busy handling/decoding input
+        async with self.io_lock: # lock the input from happening??
+            self.incoming_buffer += await self.input_interface.pull_data_buffer()
+        
+        
