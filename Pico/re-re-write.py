@@ -1,0 +1,130 @@
+# just cleaning up based on what i've learned
+# add some better comments here, nerd!
+
+
+
+from machine import PWM, Pin, ADC #type: ignore 
+from micropython import const #type:ignore
+import time
+import asyncio
+from collections import deque
+from math import sin, pi
+from micropython import const #type:ignore
+
+# Character encodings
+LTRS = (
+    "\b",
+    "E",
+    "\n",
+    "A",
+    " ",
+    "S",
+    "I",
+    "U",
+    "\r",
+    "D",
+    "R",
+    "J",
+    "N",
+    "F",
+    "C",
+    "K",
+    "T",
+    "Z",
+    "L",
+    "W",
+    "H",
+    "Y",
+    "P",
+    "Q",
+    "O",
+    "B",
+    "G",
+    "FIGS",
+    "M",
+    "X",
+    "V",
+    "LTRS",
+)
+FIGS = (
+    "\b",
+    "3",
+    "\n",
+    "-",
+    " ",
+    "-",
+    "8",
+    "7",
+    "\r",
+    "$",
+    "4",
+    "'",
+    ",",
+    "!",
+    ":",
+    "(",
+    "5",
+    '"',
+    ")",
+    "2",
+    "=",
+    "6",
+    "0",
+    "1",
+    "9",
+    "?",
+    "+",
+    "FIGS",
+    ".",
+    "/",
+    ";",
+    "LTRS",
+)
+
+
+
+
+
+# Write some sine tables for our tones:
+# constants for sine wave generation, copied from John Park's stuff for circuitpython
+
+SIN_LENGTH = 100  # more is less choppy
+SIN_AMPLITUDE = 2 ** 15  # 0 (min) to 32768 (max)  made 2^15 to allow for maximum volume. 3.5v won't do a lot on this speaker.
+SIN_OFFSET = 32767.5  # for 16bit range, (2**16 - 1) / 2
+DELTA_PI = 2 * pi / SIN_LENGTH  # happy little constant
+# a table of sine wave values for pwm!
+SINE_WAVE = [
+    int(SIN_OFFSET + SIN_AMPLITUDE * sin(DELTA_PI * i)) for i in range(SIN_LENGTH)
+]
+
+_BAUDOT_ONE = const(1/140000) # sample period for 1400 Hz tone
+_BAUDOT_ZERO = const(1/180000) # sample period for 1800 Hz
+
+
+class BaudotOutput:
+    def __init__(self, out_pin):
+        self.output = PWM(out_pin, freq = 16000)  # if you need higher freq, change the freq here to adapt.
+        self.line_val = 1 # what value is being output to the line
+        self.buffered_out = deque(())
+        self.out_mode = LTRS # what output mode are we in
+
+    def buffer_string(self, string_to_buffer:str):
+        # Ensure we end with a newline
+        if string_to_buffer[-1] != "\n":
+            string_to_buffer += "\n"
+        
+        self.buffered_out.clear()
+        char_count = 0 # a counter to know when to reassert LTRS/FIGS
+              
+        for c in string_to_buffer: 
+            # First check if we need to assert mode:
+            if char_count % 10 ==  0: 
+                # next check for the correct mode to set
+                if c in LTRS:
+                    self.buffered_out.append(0x1B)
+                    self.out_mode = LTRS
+                else:
+                    self.buffered_out.append(0x1F)
+            char_count += 1
+
+            

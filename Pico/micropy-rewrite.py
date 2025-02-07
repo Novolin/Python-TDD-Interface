@@ -1,10 +1,11 @@
 # Trying to do stuff in micropython because it's a bit faster and I know it better now
 
-#from machine import PWM, Pin, ADC #type: ignore 
+from machine import PWM, Pin, ADC #type: ignore 
 import time
 import asyncio
 from collections import deque
 from math import sin, pi
+from micropython import const #type:ignore
 
 # Character encodings
 LTRS = (
@@ -92,6 +93,9 @@ SINE_WAVE = [
     int(SIN_OFFSET + SIN_AMPLITUDE * sin(DELTA_PI * i)) for i in range(SIN_LENGTH)
 ]
 
+_BAUDOT_ONE = const(1/140000) # sample period for 1400 Hz tone
+_BAUDOT_ZERO = const(1/180000) # sample period for 1800 Hz
+
 
 
 class ToneOutput: # only good to ~ 8khz!!!
@@ -113,12 +117,14 @@ class ToneOutput: # only good to ~ 8khz!!!
             self.step += 1
             self.output.duty_u16(SINE_WAVE[self.step])
             
-            asyncio.sleep(1/(self.freq * SIN_LENGTH)) # wait for the next point. 
         return # if we're not playing, we can end this task
             
     def stop_tone(self):
         self.playing = False
         # This should cause the while loop in play_tone() to end.
+
+    
+
 
 class AudioCoupler:
     def __init__(self, out_pin, in_pin):
