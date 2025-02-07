@@ -82,9 +82,6 @@ FIGS = (
 )
 
 
-
-
-
 # Write some sine tables for our tones:
 # constants for sine wave generation, copied from John Park's stuff for circuitpython
 
@@ -141,7 +138,6 @@ class BaudotOutput:
                 self.buffered_out.append(4) # if it's not found, append a space, this works in FIGS or LTRS
         return char_count # return # of chars buffered.
         
-    
     def play_tone(self, duration, value):
         # Plays the tone for a given value for the given # of ms
         # blocks further execution because timing is very sensitive on this bad boy.
@@ -151,10 +147,27 @@ class BaudotOutput:
             self.sample_position += 1
             time.sleep_us(value)
 
-
-
     async def play_data_tones(self): 
         # waits for RTS event, then plays data tones for the correct period
         await self.rts_trigger.wait()
         # RTS recieved, now we can play tones
-       
+        while len(self.buffered_out > 0):
+            next_byte = self.buffered_out.popleft()
+            bitcount = 0
+            self.play_tone(20,_BAUDOT_ZERO) # start bit
+            while bitcount < 5: # now do the whole byte
+                if next_byte >> bitcount & 1: # If the bits are backwards, this is where you messed up.
+                    self.play_tone(20,_BAUDOT_ONE)
+                else:
+                    self.play_tone(20,_BAUDOT_ZERO)
+                bitcount += 1
+            self.play_tone(30,_BAUDOT_ONE) # stop bit
+        self.play_tone(150, _BAUDOT_ONE) # extend carrier tone to reduce echo
+
+
+class BaudotInput:
+    def __init__(self, adc_pin):
+        self.line_in = ADC(adc_pin)
+        self.read_mode = LTRS # default to reading in LTRS mode
+        self.data_buffer = deque(()) # buffer for incoming data
+        self.input_lock = asyncio.Lock()
