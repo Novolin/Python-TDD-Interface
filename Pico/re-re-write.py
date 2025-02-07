@@ -152,22 +152,21 @@ class BaudotOutput:
             self.sample_position += 1
             time.sleep_us(value)
 
-    async def play_data_tones(self): 
-        # waits for RTS event, then plays data tones for the correct period
-        await self.rts_trigger.wait()
-        # RTS recieved, now we can play tones
-        while len(self.buffered_out)> 0:
-            next_byte = self.buffered_out.popleft()
-            bitcount = 0
-            self.play_tone(20,_BAUDOT_ZERO) # start bit
-            while bitcount < 5: # now do the whole byte
-                if next_byte >> bitcount & 1: # If the bits are backwards, this is where you messed up.
-                    self.play_tone(20,_BAUDOT_ONE)
-                else:
-                    self.play_tone(20,_BAUDOT_ZERO)
-                bitcount += 1
-            self.play_tone(30,_BAUDOT_ONE) # stop bit
-        self.play_tone(150, _BAUDOT_ONE) # extend carrier tone to reduce echo
+    async def play_data_tones(self, lock:asyncio.Lock): 
+        # waits for i/o unlock, then plays data tones for the correct period
+        with lock:
+            while len(self.buffered_out > 0):
+                next_byte = self.buffered_out.popleft()
+                bitcount = 0
+                self.play_tone(20,_BAUDOT_ZERO) # start bit
+                while bitcount < 5: # now do the whole byte
+                    if next_byte >> bitcount & 1: # If the bits are backwards, this is where you messed up.
+                        self.play_tone(20,_BAUDOT_ONE)
+                    else:
+                        self.play_tone(20,_BAUDOT_ZERO)
+                    bitcount += 1
+                self.play_tone(30,_BAUDOT_ONE) # stop bit
+            self.play_tone(150, _BAUDOT_ONE) # extend carrier tone to reduce echo/mess
 
 
 class BaudotInput:
