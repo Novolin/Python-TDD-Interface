@@ -107,8 +107,11 @@ class BaudotOutput:
         self.line_val = 1 # what value is being output to the line
         self.buffered_out = deque(())
         self.out_mode = LTRS # what output mode are we in
+        self.rts_trigger = asyncio.Event() # event to trigger an RTS condition.
+        self.sample_position = 0 # where in the sine table are we. Used for smooth transitions between freqencies.
 
     def buffer_string(self, string_to_buffer:str):
+        # Adds string to the output buffer, and sets the trigger for RTS.
         # Ensure we end with a newline
         if string_to_buffer[-1] != "\n":
             string_to_buffer += "\n"
@@ -118,13 +121,40 @@ class BaudotOutput:
               
         for c in string_to_buffer: 
             # First check if we need to assert mode:
-            if char_count % 10 ==  0: 
+            if char_count % 10 ==  0 or c not in self.out_mode: 
                 # next check for the correct mode to set
                 if c in LTRS:
                     self.buffered_out.append(0x1B)
                     self.out_mode = LTRS
+                elif c in FIGS:
+                    self.buffered_out.append(0x1F)
+                    self.out_mode = FIGS
+                elif self.out_mode == LTRS: # if it's not a valid character, just reassert what we have already.
+                    self.buffered_out.append(0x1B)
                 else:
                     self.buffered_out.append(0x1F)
-            char_count += 1
 
-            
+            char_count += 1
+            if c in self.out_mode:
+                self.buffered_out.append(self.out_mode.index(c))
+            else:
+                self.buffered_out.append(4) # if it's not found, append a space, this works in FIGS or LTRS
+        return char_count # return # of chars buffered.
+        
+    
+    def play_tone(self, duration, value):
+        # Plays the tone for a given value for the given # of ms
+        # blocks further execution because timing is very sensitive on this bad boy.
+        start_time = time.ticks_ms()
+        while time.ticks_diff(start_time, time.ticks_ms) < duration:
+            self.output.duty_u16(SINE_WAVE[self.sample_position])
+            self.sample_position += 1
+            time.sleep_us(value)
+
+
+
+    async def play_data_tones(self): 
+        # waits for RTS event, then plays data tones for the correct period
+        await self.rts_trigger.wait()
+        # RTS recieved, now we can play tones
+       
