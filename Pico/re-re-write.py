@@ -179,7 +179,7 @@ class BaudotInput:
         self.input_error = asyncio.Event() # idk if this is the best way to do it but whatevzzzz
 
     async def listener(self, listen_event):
-        # continually listens for tone, outputs any new data to target
+        # continually listens for tone, writes new data to the input buffer
         while True:
             await listen_event.wait() # wait for the ready-to-listen event to fire
             # When we have the all clear to listen
@@ -199,14 +199,13 @@ class BaudotInput:
                                 # after we get real data, use a 500ms timeout instead
                                 data_timeout = time.ticks_add(time.ticks_ms(), 500) 
                                 # let other funky shit happen while we wait for the next bit
-                                await asyncio.sleep_ms(time.ticks_diff(time.ticks_ms(), bit_start))
-                        elif sample_bit == 1: # If it's just our carrier:
-                            if time.ticks_diff(time.ticks_ms())
-                            await asyncio.sleep_ms(5) # yield for 5ms before trying again
+                                await asyncio.sleep_ms(time.ticks_diff(time.ticks_ms(), bit_start)) #type:ignore
+                            else:
+                                self.input_error.set()
+                        elif sample_bit == 1: # If it's just our carrier, yield for 5ms
+                            await asyncio.sleep_ms(5) #type:ignore
                         else: # Uh oh, error town!
-                            self.
-                            
-
+                            self.input_error.set()
 
     def sample_data_bit(self):
         # gets a single bit based off of a 5ms sample
@@ -301,7 +300,7 @@ class BaudotInterface:
     async def pull_buffered_data(self):
         # pull data from the input object
         # awaitable because it may be busy handling/decoding input
-        async with self.io_lock: # lock the input from happening??
+        async with self.io_lock: # this won't let it run if we're waiting on more data to arrive
             self.incoming_buffer += await self.input_interface.pull_data_buffer()
         
         
