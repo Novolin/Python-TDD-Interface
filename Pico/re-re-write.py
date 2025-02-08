@@ -104,12 +104,11 @@ receive_trigger = asyncio.Event()
 
 
 class BaudotOutput:
-    def __init__(self, out_pin, send_trigger = send_trigger):
+    def __init__(self, out_pin):
         self.output = PWM(out_pin, freq = 16000)  # if you need higher freq, change the freq here to adapt.
         self.line_val = 1 # what value is being output to the line
         self.buffered_out = deque(())
         self.out_mode = LTRS # what output mode are we in
-        self.rts_trigger = send_trigger # event to trigger an RTS condition.
         self.sample_position = 0 # where in the sine table are we. Used for smooth transitions between freqencies.
 
     def buffer_string(self, string_to_buffer:str):
@@ -177,8 +176,9 @@ class BaudotInput:
         self.active = False # are we currently listening to a tone
         self.io_lock = io_lock
 
-    async def listener(self):
-         # When we have the all clear to listen
+    async def listener(self, target):
+        # listens for tone, outputs any new data to target
+        # When we have the all clear to listen
         sample = self.line_in.read_u16()
         if sample > 32768 + self.noise_floor or sample < 32768 - self.noise_floor:
             bit_start = time.ticks_ms() # flag when it happened
@@ -240,15 +240,18 @@ class BaudotInput:
             waiting_time = 20 + (20 * bitcount) - time.ticks_diff(byte_start, time.ticks_ms())
             
     async def pull_data_buffer(self) -> str:
-        # if it's available, return teh buffered data
+        # if it's available, return the buffered data
         return ""
 
 class BaudotInterface:
-    def __init__(self, audio_in_pin, audio_out_pin):
+    def __init__(self, audio_in_pin, audio_out_pin, processor):
         self.incoming_buffer = ""
+        self.outgoing_buffer = ""
         self.io_lock = asyncio.Lock() # stop input and output 
         self.input_interface = BaudotInput(audio_in_pin, self.io_lock) #TODO: make this init an input obj
         self.output_interface = BaudotOutput(audio_out_pin) #TODO: make this init an output obj
+        self.processor = processor
+
 
     async def write(self, string):
         # Push a string to the output buffer, and signal that we are ready to output data
@@ -269,3 +272,14 @@ class BaudotInterface:
             self.incoming_buffer += await self.input_interface.pull_data_buffer()
         
         
+    async def process_input(self):
+        pass 
+
+    async def run_loop(self):
+        # This loop will execute until something kills the running flag.
+        # idk what that would be but w/e
+        task_list = [
+            self.input_interface.listener(self.incoming_buffer),
+            self.processor.process(self.incoming_buffer, self.outgoing_buffer),
+            self.output_interface.play_data_tones(self.io_lock),
+        ]
