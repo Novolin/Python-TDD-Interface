@@ -3,7 +3,7 @@
 
 
 
-from machine import PWM, Pin, ADC #type: ignore 
+from machine import PWM, ADC #type: ignore 
 from micropython import const #type:ignore
 import time
 import asyncio
@@ -98,30 +98,25 @@ _BAUDOT_ONE = const(1/140000) # sample period for 1400 Hz tone
 _BAUDOT_ZERO = const(1/180000) # sample period for 1800 Hz
 
 
-# sync events for rx/tx
-send_trigger = asyncio.Event()
-receive_trigger = asyncio.Event() 
-
 
 class BaudotOutput:
-    def __init__(self, out_pin):
-        self.output = PWM(out_pin, freq = 16000)  # if you need higher freq, change the freq here to adapt.
-        self.line_val = 1 # what value is being output to the line
+    def __init__(self, out_pin, iolock, send_event):
+        self.output = PWM(out_pin, freq = 16000)
         self.buffered_out = deque(())
         self.out_mode = LTRS # what output mode are we in
         self.sample_position = 0 # where in the sine table are we. Used for smooth transitions between freqencies.
+        self.rts = send_event # ready to send event
+        self.lock = iolock
 
     def buffer_string(self, string_to_buffer:str):
-        # Adds string to the output buffer, and sets the trigger for RTS.
+        # Adds string to the output buffer
         # Ensure we end with a newline
         if string_to_buffer[-1] != "\n":
             string_to_buffer += "\n"
-    
-        char_count = 0 # a counter to know when to reassert LTRS/FIGS
-              
+        char_count = 0 # a counter to know when to reassert LTRS/FIGS             
         for c in string_to_buffer: 
             # First check if we need to assert mode:
-            if char_count % 10 ==  0 or c not in self.out_mode: 
+            if char_count % 10 ==  0 or c not in self.out_mode: # reassert every 10 chars sent.
                 # next check for the correct mode to set
                 if c in LTRS:
                     self.buffered_out.append(0x1B)
@@ -133,7 +128,6 @@ class BaudotOutput:
                     self.buffered_out.append(0x1B)
                 else:
                     self.buffered_out.append(0x1F)
-
             char_count += 1
             if c in self.out_mode:
                 self.buffered_out.append(self.out_mode.index(c))
@@ -148,41 +142,45 @@ class BaudotOutput:
         while time.ticks_diff(start_time, time.ticks_ms) < duration:
             self.output.duty_u16(SINE_WAVE[self.sample_position])
             self.sample_position += 1
-            time.sleep_us(value)
+            time.sleep(value)
 
-    async def play_data_tones(self, lock:asyncio.Lock): 
-        # waits for i/o unlock, then plays data tones for the correct period
-        async with lock:
-            while len(self.buffered_out) > 0:
-                next_byte = self.buffered_out.popleft()
-                bitcount = 0
-                self.play_tone(20,_BAUDOT_ZERO) # start bit
-                while bitcount < 5: # now do the whole byte
-                    if next_byte >> bitcount & 1: # If the bits are backwards, this is where you messed up.
-                        self.play_tone(20,_BAUDOT_ONE)
-                    else:
-                        self.play_tone(20,_BAUDOT_ZERO)
-                    bitcount += 1
-                self.play_tone(30,_BAUDOT_ONE) # stop bit
-            self.play_tone(150, _BAUDOT_ONE) # extend carrier tone to reduce echo/mess
+    def play_data_tones(self): 
+        while len(self.buffered_out) > 0:
+            next_byte = self.buffered_out.popleft()
+            bitcount = 0
+            self.play_tone(20,_BAUDOT_ZERO) # start bit
+            while bitcount < 5: # now do the whole byte
+                if next_byte >> bitcount & 1: # If the bits are backwards, this is where you messed up.
+                    self.play_tone(20,_BAUDOT_ONE)
+                else:
+                    self.play_tone(20,_BAUDOT_ZERO)
+                bitcount += 1
+            self.play_tone(30,_BAUDOT_ONE) # stop bit
+        self.play_tone(150, _BAUDOT_ONE) # extend carrier tone to reduce echo/mess
+        return True # sent queued data
 
+    async def send_if_ready(self):
+        # Will send queued data if it is ready
+        await self.rts.wait() 
+        if len(self.buffered_out) > 0: # If we have data
+            with self.lock:
+                self.play_data_tones()
 
 class BaudotInput:
-    def __init__(self, adc_pin, io_lock):
+    def __init__(self, adc_pin, io_lock, allow_event, rx_event):
         self.line_in = ADC(adc_pin)
         self.read_mode = LTRS # default to reading in LTRS mode
         self.data_buffer = "" # buffer for incoming data
         self.noise_floor = 1024 # how much noise on the line before we detect signal
-        self.active = False # are we currently listening to a tone
         self.io_lock = io_lock
-        self.new_input = asyncio.Event() # flag when we have new data that has arrived
+        self.new_input = rx_event
         self.input_error = asyncio.Event() # idk if this is the best way to do it but whatevzzzz
+        self.allow_listen = allow_event
 
-    async def listener(self, listen_event):
+    async def listener(self):
         # continually listens for tone, writes new data to the input buffer
         while True:
-            await listen_event.wait() # wait for the ready-to-listen event to fire
-            # When we have the all clear to listen
+            await self.allow_listen.wait() # wait for the ready-to-listen event to fire
             sample = self.line_in.read_u16()
             if sample > 32768 + self.noise_floor or sample < 32768 - self.noise_floor:
                 bit_start = time.ticks_ms() # flag when it happened
@@ -206,6 +204,11 @@ class BaudotInput:
                             await asyncio.sleep_ms(5) #type:ignore
                         else: # Uh oh, error town!
                             self.input_error.set()
+                    # We've hit timeout now, so all data should be receieved.
+                    # Let's yield to allow the other stuff to go ahead
+                    self.allow_listen.clear()
+            else: # sample isn't above our floor, so we can wait
+                await asyncio.sleep_ms(1) #type:ignore    
 
     def sample_data_bit(self):
         # gets a single bit based off of a 5ms sample
@@ -267,9 +270,8 @@ class BaudotInput:
         else:
             self.data_buffer += next_char # we can concat a string to a string, it's fine.
         return True 
-        
-            
-    async def pull_data_buffer(self) -> str:
+              
+    def pull_data_buffer(self) -> str:
         val = self.data_buffer
         self.data_buffer = ""
         return val
@@ -279,17 +281,22 @@ class BaudotInterface:
         self.incoming_buffer = ""
         self.outgoing_buffer = ""
         self.io_lock = asyncio.Lock() # stop input and output 
-        self.input_interface = BaudotInput(audio_in_pin, self.io_lock) 
-        self.output_interface = BaudotOutput(audio_out_pin) 
+        self.trigger_listener = asyncio.Event() # event to tell the listener to go ahead
+        self.trigger_sender = asyncio.Event() # event to trigger the sending interface to go ahead
+        self.data_rx_event = asyncio.Event()
+        self.input_interface = BaudotInput(audio_in_pin, self.io_lock, self.trigger_listener, self.data_rx_event) 
+        self.output_interface = BaudotOutput(audio_out_pin, self.trigger_sender)
+        
+
         self.processor = processor
         
 
 
-    async def write(self, string):
+    def write(self, string):
         # Push a string to the output buffer, and signal that we are ready to output data
-        # Maybe this is the best time to sanitize our inputs?
         self.output_interface.buffer_string(string)
-        await self.output_interface.play_data_tones(self.io_lock)
+        
+        
     
     def read(self):
         # Return the data that was in the buffer, and clear it.
@@ -301,17 +308,13 @@ class BaudotInterface:
         # pull data from the input object
         # awaitable because it may be busy handling/decoding input
         async with self.io_lock: # this won't let it run if we're waiting on more data to arrive
-            self.incoming_buffer += await self.input_interface.pull_data_buffer()
+            self.incoming_buffer += self.input_interface.pull_data_buffer()
         
-        
-    async def process_input(self):
-        pass 
-
     async def run_loop(self):
         # This loop will execute until something kills the running flag.
         # idk what that would be but w/e
         task_list = [
             self.input_interface.listener(self.incoming_buffer),
             self.processor.process(self.incoming_buffer, self.outgoing_buffer),
-            self.output_interface.play_data_tones(self.io_lock),
+            self.output_interface.send_if_ready(),
         ]
