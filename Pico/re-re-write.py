@@ -163,7 +163,7 @@ class BaudotOutput:
         # Will send queued data if it is ready
         await self.rts.wait() 
         if len(self.buffered_out) > 0: # If we have data
-            with self.lock:
+            with self.lock: # block anything else from running
                 self.play_data_tones()
 
 class BaudotInput:
@@ -277,7 +277,7 @@ class BaudotInput:
         return val
 
 class BaudotInterface:
-    def __init__(self, audio_in_pin, audio_out_pin, processor):
+    def __init__(self, audio_in_pin, audio_out_pin):
         self.incoming_buffer = ""
         self.outgoing_buffer = ""
         self.io_lock = asyncio.Lock() # stop input and output 
@@ -285,11 +285,8 @@ class BaudotInterface:
         self.trigger_sender = asyncio.Event() # event to trigger the sending interface to go ahead
         self.data_rx_event = asyncio.Event()
         self.input_interface = BaudotInput(audio_in_pin, self.io_lock, self.trigger_listener, self.data_rx_event) 
-        self.output_interface = BaudotOutput(audio_out_pin, self.trigger_sender)
-        
+        self.output_interface = BaudotOutput(audio_out_pin, self.io_lock, self.trigger_sender)
 
-        self.processor = processor
-        
 
 
     def write(self, string):
@@ -312,9 +309,6 @@ class BaudotInterface:
         
     async def run_loop(self):
         # This loop will execute until something kills the running flag.
-        # idk what that would be but w/e
-        task_list = [
-            self.input_interface.listener(self.incoming_buffer),
-            self.processor.process(self.incoming_buffer, self.outgoing_buffer),
-            self.output_interface.send_if_ready(),
-        ]
+        # it is awaitable so other processes can yield to it when needed.
+        pass
+        
