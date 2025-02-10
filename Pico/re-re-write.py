@@ -159,12 +159,14 @@ class BaudotOutput:
         self.play_tone(150, _BAUDOT_ONE) # extend carrier tone to reduce echo/mess
         return True # sent queued data
 
-    async def send_if_ready(self):
+    async def send_when_ready(self):
         # Will send queued data if it is ready
-        await self.rts.wait() 
-        if len(self.buffered_out) > 0: # If we have data
-            with self.lock: # block anything else from running
-                self.play_data_tones()
+        while True:
+            await self.rts.wait() 
+            if len(self.buffered_out) > 0: # If we have data
+                with self.lock: # block anything else from running
+                    self.play_data_tones()
+            self.rts.clear() # Let the queue build up again
 
 class BaudotInput:
     def __init__(self, adc_pin, io_lock, allow_event, rx_event):
@@ -292,6 +294,7 @@ class BaudotInterface:
     def write(self, string):
         # Push a string to the output buffer, and signal that we are ready to output data
         self.output_interface.buffer_string(string)
+        self.trigger_sender.set()
         
         
     
@@ -301,14 +304,50 @@ class BaudotInterface:
         self.incoming_buffer = ""
         return output 
     
+    def enable_listener(self):
+        # flags the listener event to be able to run
+        self.trigger_listener.set()
+
+    def pause_listener(self):
+        # flags the listener to idle until allowed
+        # softer than the io lock since we can still output data
+        # useful if you want to delay part of a message for whatever reason
+        self.trigger_listener.clear()
+        
+
+
     async def pull_buffered_data(self):
         # pull data from the input object
         # awaitable because it may be busy handling/decoding input
         async with self.io_lock: # this won't let it run if we're waiting on more data to arrive
             self.incoming_buffer += self.input_interface.pull_data_buffer()
         
-    async def run_loop(self):
-        # This loop will execute until something kills the running flag.
-        # it is awaitable so other processes can yield to it when needed.
-        pass
+    async def build_run_loop(self):
+        # returns a set of coroutines which can be added to whatever task runner you have in your parent program.
+        io_group = set()
+        io_group.add(self.input_interface.listener())
+        io_group.add(self.output_interface.send_when_ready())
+        return io_group
+
+
+# Functions for testing/demo below.
+
+async def print_incoming_data(interface):
+    while True:
+        interface.enable_listener() # signal as ready to take incoming data
+        await interface.data_rx_event.wait() # wait for incoming data
+        interface.pause_listener() # pause the listening proccess until we are done our part
+        indat = interface.read()
+
+        if indat == "INPUT":
+            give_str = input("INPUT REQUEST:")
+            interface.write(give_str)
+        else: 
+            print(interface.read())
         
+
+def TEST_print_to_console(pin1, pin2):
+    interface = BaudotInterface(pin1, pin2)
+    task_list = interface.build_run_loop()
+    task_list.add(print_incoming_data(interface))
+    asyncio.gather(task_list) # fire them all off
