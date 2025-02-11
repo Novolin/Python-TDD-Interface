@@ -1,5 +1,8 @@
-# just cleaning up based on what i've learned
-# add some better comments here, nerd!
+#######
+# Baudot MicroPython Thing
+# V 0.0.1 
+# Maybe, possibly working
+####################
 
 
 
@@ -8,9 +11,11 @@ from micropython import const #type:ignore
 import time
 import asyncio
 from collections import deque
-from math import sin, pi
 from micropython import const #type:ignore
 
+# freq. constants
+_BAUDOT_ONE = const(1400) # 1400hz is the mark/carrier tone
+_BAUDOT_ZERO = const(1800) # 1800 is space/zero
 # Character encodings
 LTRS = (
     "\b",
@@ -81,30 +86,11 @@ FIGS = (
     "LTRS",
 )
 
-
-# Write some sine tables for our tones:
-# constants for sine wave generation, copied from John Park's stuff for circuitpython
-
-SIN_LENGTH = 100  # more is less choppy
-SIN_AMPLITUDE = 2 ** 15  # 0 (min) to 32768 (max)  made 2^15 to allow for maximum volume. 3.5v won't do a lot on this speaker.
-SIN_OFFSET = 32767.5  # for 16bit range, (2**16 - 1) / 2
-DELTA_PI = 2 * pi / SIN_LENGTH  # happy little constant
-# a table of sine wave values for pwm!
-SINE_WAVE = [
-    int(SIN_OFFSET + SIN_AMPLITUDE * sin(DELTA_PI * i)) for i in range(SIN_LENGTH)
-]
-
-_BAUDOT_ONE = const(1/140000) # sample period for 1400 Hz tone
-_BAUDOT_ZERO = const(1/180000) # sample period for 1800 Hz
-
-
-
 class BaudotOutput:
     def __init__(self, out_pin, iolock, send_event):
-        self.output = PWM(out_pin, freq = 16000)
+        self.output = PWM(out_pin, freq = 1400, duty_u16 = 0) # start muted
         self.buffered_out = deque(())
         self.out_mode = LTRS # what output mode are we in
-        self.sample_position = 0 # where in the sine table are we. Used for smooth transitions between freqencies.
         self.rts = send_event # ready to send event
         self.lock = iolock
 
@@ -138,11 +124,11 @@ class BaudotOutput:
     def play_tone(self, duration, value):
         # Plays the tone for a given value for the given # of ms
         # blocks further execution because timing is very sensitive on this bad boy.
-        start_time = time.ticks_ms()
-        while time.ticks_diff(start_time, time.ticks_ms) < duration:
-            self.output.duty_u16(SINE_WAVE[self.sample_position])
-            self.sample_position += 1
-            time.sleep(value)
+        end_time = time.ticks_add(time.ticks_ms(), duration)
+        self.output.freq = value
+        while time.ticks_diff(time.ticks_ms(),end_time) > 0:
+            self.output.duty_u16(32768) # blast at max volume?
+        self.output.duty_u16(0) # and back to mute
 
     def play_data_tones(self): 
         while len(self.buffered_out) > 0:
@@ -185,12 +171,12 @@ class BaudotInput:
             await self.allow_listen.wait() # wait for the ready-to-listen event to fire
             sample = self.line_in.read_u16()
             if sample > 32768 + self.noise_floor or sample < 32768 - self.noise_floor:
-                bit_start = time.ticks_ms() # flag when it happened
-                data_timeout = time.ticks_add(bit_start, 100) # 100 ms timeout before we yield to other processes.
+                bit_start = time.ticks_add(time.ticks_ms(), 0) # just get the tick value for when this was.
+                data_timeout = time.ticks_add(time.ticks_ms(), 100) # 100 ms timeout before we yield to other processes.
                 # we've tripped the noise floor, expect incoming signal.
                 # monitor the freq until we hit the signal
                 async with self.io_lock: # lock anything else from interrupting
-                    while time.ticks_ms() < data_timeout:   
+                    while time.ticks_diff(time.ticks_ms(), data_timeout) > 0:   
                         sample_bit = self.sample_data_bit()
                         if sample_bit == 0: # If we get a start bit
                             if self.read_full_byte(bit_start):
@@ -215,8 +201,8 @@ class BaudotInput:
     def sample_data_bit(self):
         # gets a single bit based off of a 5ms sample
         sample_list = []
-        start_time = time.ticks_ms()
-        while time.ticks_diff(time.ticks_ms(), start_time) < 5:
+        sample_timeout = time.ticks_add(time.ticks_ms(), 5)
+        while time.ticks_diff(time.ticks_ms(), sample_timeout) > 0:
             sample_list.append(self.line_in.read_u16())
             time.sleep_us(100) # ~100us/ sample, aka 10kHz, should be enough for us
         
@@ -253,8 +239,10 @@ class BaudotInput:
         incoming_byte = 0
         bitcount = 0
         while bitcount < 5:
-            waiting_time = 20 + (20 * bitcount) - time.ticks_diff(byte_start, time.ticks_ms())
-            time.sleep_ms(waiting_time)
+            waiting_time = 20 + (20 * bitcount)
+            next_time = time.ticks_add(byte_start, waiting_time)
+            while time.ticks_diff(next_time, time.ticks_ms()) > 0:
+                pass # idle until we're ready for the next bit
             bitcount += 1    
             next_bit = self.sample_data_bit()
             if next_bit >=0: # if we get a 0 or 1
@@ -289,14 +277,10 @@ class BaudotInterface:
         self.input_interface = BaudotInput(audio_in_pin, self.io_lock, self.trigger_listener, self.data_rx_event) 
         self.output_interface = BaudotOutput(audio_out_pin, self.io_lock, self.trigger_sender)
 
-
-
     def write(self, string):
         # Push a string to the output buffer, and signal that we are ready to output data
         self.output_interface.buffer_string(string)
         self.trigger_sender.set()
-        
-        
     
     def read(self):
         # Return the data that was in the buffer, and clear it.
@@ -315,7 +299,6 @@ class BaudotInterface:
         self.trigger_listener.clear()
         
 
-
     async def pull_buffered_data(self):
         # pull data from the input object
         # awaitable because it may be busy handling/decoding input
@@ -328,7 +311,6 @@ class BaudotInterface:
         io_group.add(self.input_interface.listener())
         io_group.add(self.output_interface.send_when_ready())
         return io_group
-
 
 # Functions for testing/demo below.
 
