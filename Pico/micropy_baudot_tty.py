@@ -123,11 +123,15 @@ class BaudotOutput:
         
     def play_tone(self, duration, value):
         # Plays the tone for a given value for the given # of ms
-        # blocks further execution because timing is very sensitive on this bad boy.
+        # blocks further execution because timing is sensitive on this bad boy.
+        # IF YOU HAVE ISSUES WITH LONG STRINGS GOING OUT, TRY HERE
+        #NOTE: YOU PROBABLY FUCKED UP WITH TIMING HERE
         end_time = time.ticks_add(time.ticks_ms(), duration)
         self.output.freq = value
-        while time.ticks_diff(time.ticks_ms(),end_time) > 0:
-            self.output.duty_u16(32768) # blast at max volume?
+        self.output.duty_u16(32768) # GIV'R BUD
+        while time.ticks_diff(time.ticks_ms(), end_time) > 0:
+            pass
+            
         self.output.duty_u16(0) # and back to mute
 
     def play_data_tones(self): 
@@ -171,7 +175,7 @@ class BaudotInput:
             await self.allow_listen.wait() # wait for the ready-to-listen event to fire
             sample = self.line_in.read_u16()
             if sample > 32768 + self.noise_floor or sample < 32768 - self.noise_floor:
-                bit_start = time.ticks_add(time.ticks_ms(), 0) # just get the tick value for when this was.
+                bit_start = time.ticks_ms() # just get the tick value for when this was.
                 data_timeout = time.ticks_add(time.ticks_ms(), 100) # 100 ms timeout before we yield to other processes.
                 # we've tripped the noise floor, expect incoming signal.
                 # monitor the freq until we hit the signal
@@ -185,6 +189,8 @@ class BaudotInput:
                                 # after we get real data, use a 500ms timeout instead
                                 data_timeout = time.ticks_add(time.ticks_ms(), 500) 
                                 # let other funky shit happen while we wait for the next bit
+                                # ticks_diff will give us an approximate time, so maybe we should drop it by a little bit?
+                                #NOTE: IF YOU GET A BUNCH OF ISSUES WITH LONG STRINGS, TRY FUCKING WITH THIS
                                 await asyncio.sleep_ms(time.ticks_diff(time.ticks_ms(), bit_start)) #type:ignore
                             else:
                                 self.input_error.set()
@@ -201,10 +207,10 @@ class BaudotInput:
     def sample_data_bit(self):
         # gets a single bit based off of a 5ms sample
         sample_list = []
-        sample_timeout = time.ticks_add(time.ticks_ms(), 5)
-        while time.ticks_diff(time.ticks_ms(), sample_timeout) > 0:
+        sample_timeout = time.ticks_add(time.ticks_us(), 5000)
+        while time.ticks_diff(sample_timeout, time.ticks_us()) > 0:
             sample_list.append(self.line_in.read_u16())
-            time.sleep_us(100) # ~100us/ sample, aka 10kHz, should be enough for us
+            time.sleep_us(50) # ~60us/ sample, should be enough for us
         
         zcount = 0 # crossings
         if sample_list[0] > 32768: # what position are we comparing it to.
@@ -304,17 +310,11 @@ class BaudotInterface:
         # awaitable because it may be busy handling/decoding input
         async with self.io_lock: # this won't let it run if we're waiting on more data to arrive
             self.incoming_buffer += self.input_interface.pull_data_buffer()
-        
-    async def build_run_loop(self):
-        # returns a set of coroutines which can be added to whatever task runner you have in your parent program.
-        io_group = set()
-        io_group.add(self.input_interface.listener())
-        io_group.add(self.output_interface.send_when_ready())
-        return io_group
+
 
 # Functions for testing/demo below.
 
-async def print_incoming_data(interface):
+async def print_incoming_data(interface:BaudotInterface):
     while True:
         interface.enable_listener() # signal as ready to take incoming data
         await interface.data_rx_event.wait() # wait for incoming data
@@ -330,6 +330,8 @@ async def print_incoming_data(interface):
 
 def TEST_print_to_console(pin1, pin2):
     interface = BaudotInterface(pin1, pin2)
-    task_list = interface.build_run_loop()
+    task_list = set()
+    task_list.add(interface.input_interface.listener())
+    task_list.add(interface.output_interface.send_when_ready())
     task_list.add(print_incoming_data(interface))
     asyncio.gather(task_list) # fire them all off
