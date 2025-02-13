@@ -86,8 +86,11 @@ FIGS = (
     "LTRS",
 )
 
+
+
+
 class BaudotOutput:
-    def __init__(self, out_pin, iolock, send_event):
+    def __init__(self, out_pin, iolock, send_event): 
         self.output = PWM(out_pin, freq = 1400, duty_u16 = 0) # start muted
         self.buffered_out = deque(())
         self.out_mode = LTRS # what output mode are we in
@@ -315,18 +318,17 @@ class BaudotInterface:
 # Functions for testing/demo below.
 
 async def print_incoming_data(interface:BaudotInterface):
+    indat = False
     while True:
+        if indat == "INPUT" or indat == False:
+            give_str = input("INPUT REQUEST: ")
+            interface.write(give_str)
+        else: 
+            print(indat)
         interface.enable_listener() # signal as ready to take incoming data
         await interface.data_rx_event.wait() # wait for incoming data
         interface.pause_listener() # pause the listening proccess until we are done our part
         indat = interface.read()
-
-        if indat == "INPUT":
-            give_str = input("INPUT REQUEST:")
-            interface.write(give_str)
-        else: 
-            print(interface.read())
-        
 
 def TEST_print_to_console(pin1, pin2):
     interface = BaudotInterface(pin1, pin2)
