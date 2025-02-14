@@ -164,8 +164,8 @@ class BaudotOutput:
                 elif mode == FIGS:
                     self.buffer.append(0x1f)
                     char_count = 0
-
-            
+        # fart that bad boy out audio-style
+        self.send_buffer()
             
                 
 
