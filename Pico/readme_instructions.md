@@ -8,3 +8,6 @@ Use .enable_listener() and .pause_listener() to stop the listener from triggerin
 
 
 
+todo:
+ use both audio outputs to control the pwm? have 1440 asserted unless 1800 needs to go?
+ 
