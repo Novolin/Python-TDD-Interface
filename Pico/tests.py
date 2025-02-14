@@ -39,3 +39,4 @@ def get_data_on_samples(sample_list:list):
         print("Should be 1800Hz (Space)")
     else:
         print("More than 20 crossings, noise floor too low???")
+
