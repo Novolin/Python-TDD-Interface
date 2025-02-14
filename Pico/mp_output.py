@@ -74,13 +74,14 @@ FIGS = (
 
 
 class BaudotOutput:
-    def __init__(self, pin_a, pin_b, max_vol = 2**16):
+    def __init__(self, pin_a, pin_b, max_vol = 2**16, rate = 50):
         # Use stereo output to our advantage: we can mix our PWM signals to make it work betterer?
         self.pwm_mark = PWM(pin_a, freq = 1400, duty_u16 = 0)
         self.pwm_space = PWM(pin_b, freq = 1800, duty_u16 = 0)
         self.active = False 
         self.max_volume = max_vol # allow for volume control
         self.buffer = deque((),280) # if it can fit in a tweet, we can print it in one go
+        self.bit_time = int(1000/rate) # 20 for 50 baud, 22 for 45.5
 
     def start_transmission(self):
         # Begin transmitting, by asserting our mark tone for a few ms
@@ -96,7 +97,7 @@ class BaudotOutput:
         start_time = ticks_ms()
         self.pwm_space.duty_u16(self.max_volume) # assert space before deasserting mark, so the device doesn't get confused
         self.pwm_mark.duty_u16(0)
-        end_time = ticks_add(start_time, 20) 
+        end_time = ticks_add(start_time, self.bit_time) 
         bcount = 0 # bit counter
         while ticks_diff(end_time, ticks_ms()) > 0:
             pass # delay until our byte is completed.
@@ -109,13 +110,13 @@ class BaudotOutput:
                 self.pwm_mark.duty_u16(0)
             
             bcount += 1
-            end_time = ticks_add(ticks_ms(), (20 * bcount))
+            end_time = ticks_add(ticks_ms(), (self.bit_time * bcount))
             while ticks_diff(end_time, ticks_ms()) > 0:
                 pass # wait for the next bit, until we are done.
-        # output carrier tone for at least 30ms:
+        # output carrier tone for at least 1.5 bits:
         self.pwm_mark.duty_u16(self.max_volume)
         self.pwm_space.duty_u16(0)
-        end_time = ticks_add(end_time, 30)
+        end_time = ticks_add(end_time, (self.bit_time * 2))
         while ticks_diff(end_time, ticks_ms())> 0:
             pass 
     
