@@ -7,15 +7,10 @@
 
 
 from machine import PWM, ADC, Pin #type: ignore 
-from micropython import const #type:ignore
 from time import ticks_diff, ticks_add, ticks_ms, time #type:ignore
-import asyncio
 from collections import deque
-from micropython import const #type:ignore
 
-# freq. constants
-_BAUDOT_ONE = const(1400) # 1400hz is the mark/carrier tone
-_BAUDOT_ZERO = const(1800) # 1800 is space/zero
+
 # Character encodings
 LTRS = (
     "\b",
@@ -207,7 +202,7 @@ class BaudotInput:
         else:
             self.rx_led = False
 
-    def decode_byte(self, byte):
+    def decode_byte(self, byte) -> str:
         decoded = self.mode[byte]
         # Return an empty string for mode switches.
         if decoded == "LTRS":
@@ -244,9 +239,9 @@ class BaudotInput:
         # at 1400 Hz we expect 14 crossings in 5ms
         # 1800 Hz would be 18
         if zero_count < 16:
-            return 1 # return a 1 since it is the mark tone
+            return True # return a 1 since it is the mark tone
         elif zero_count < 20:
-            return 0
+            return False
         else:
             raise IOError # something didn't compute correctly.
         
@@ -264,11 +259,11 @@ class BaudotInput:
         # we'll want to know the start time, so return that.
         return time_checked
     
-    def read_full_byte(self, start_time):
+    def read_full_byte(self, start_time) -> int:
         # Byte structure is as follows:
         # 1 start bit, 5 data bits, 1.5 stop bits
         # we've already read the start bit, so we need to prepare for the rest:
-        data_start_time = ticks_add(start_time, self.rate)
+        data_start_time = ticks_add(start_time, self.bit_time)
         byte_buffer = 0
         bit_count = 0
         # wait for the next bit to begin.
@@ -277,7 +272,7 @@ class BaudotInput:
         while bit_count < 5:
             byte_buffer |= self.take_sample()
             bit_count += 1
-            next_bit_time = ticks_add(data_start_time, (bit_count * self.rate))
+            next_bit_time = ticks_add(data_start_time, (bit_count * self.bit_time))
             byte_buffer = byte_buffer << 1
             while ticks_diff(next_bit_time, ticks_ms()) > 0:
                 pass # wait for our next bit
@@ -286,206 +281,25 @@ class BaudotInput:
     def read_loop(self, timeout):
         loop_timeout = time() + timeout # we only care about the seconds here.
         read_buffer = []
-        if self.monitor_led:
+        if type(self.monitor_led) == Pin: 
             self.monitor_led.value(1) # turn on our monitor light, if we got one
         loop = True
         while loop:
             tone_check = self.wait_for_tone(1000)
             if tone_check: 
-                self.rx_led.value(1)
+                if type(self.rx_led) == Pin:
+                    self.rx_led.value(1)
                 read_byte = self.read_full_byte(tone_check)
-                read_buffer.append(self.decode_byte(read_byte))
+                self.buffer += self.decode_byte(read_byte)
                 tone_check = False 
                 loop_timeout += 1 # add another second to our loop timeout.
             else: # if we don't get a tone before the timeout
                 if time() > loop_timeout:
-                    break
-
+                    loop = False
         
-                
-
-
-        
-            
-    
-    
-
-        
-
-''' THIS IS BROKEN SO SKIP IT
-class BaudotInput:
-    def __init__(self, adc_pin, io_lock, allow_event, rx_event):
-        self.line_in = ADC(adc_pin)
-        self.read_mode = LTRS # default to reading in LTRS mode
-        self.data_buffer = "" # buffer for incoming data
-        self.noise_floor = 1024 # how much noise on the line before we detect signal
-        self.io_lock = io_lock
-        self.new_input = rx_event
-        self.input_error = asyncio.Event() # idk if this is the best way to do it but whatevzzzz
-        self.allow_listen = allow_event
-
-    async def listener(self):
-        # continually listens for tone, writes new data to the input buffer
-        while True:
-            await self.allow_listen.wait() # wait for the ready-to-listen event to fire
-            sample = self.line_in.read_u16()
-            if sample > 32768 + self.noise_floor or sample < 32768 - self.noise_floor:
-                bit_start = time.ticks_ms() # just get the tick value for when this was.
-                data_timeout = time.ticks_add(time.ticks_ms(), 100) # 100 ms timeout before we yield to other processes.
-                # we've tripped the noise floor, expect incoming signal.
-                # monitor the freq until we hit the signal
-                async with self.io_lock: # lock anything else from interrupting
-                    while time.ticks_diff(time.ticks_ms(), data_timeout) > 0:   
-                        sample_bit = self.sample_data_bit()
-                        if sample_bit == 0: # If we get a start bit
-                            if self.read_full_byte(bit_start):
-                                # if there's successful data transfer, move the timeout
-                                bit_start = time.ticks_add(bit_start, 150)
-                                # after we get real data, use a 500ms timeout instead
-                                data_timeout = time.ticks_add(time.ticks_ms(), 500) 
-                                # let other funky shit happen while we wait for the next bit
-                                # ticks_diff will give us an approximate time, so maybe we should drop it by a little bit?
-                                #NOTE: IF YOU GET A BUNCH OF ISSUES WITH LONG STRINGS, TRY FUCKING WITH THIS
-                                await asyncio.sleep_ms(time.ticks_diff(time.ticks_ms(), bit_start)) #type:ignore
-                            else:
-                                self.input_error.set()
-                        elif sample_bit == 1: # If it's just our carrier, yield for 5ms
-                            await asyncio.sleep_ms(5) #type:ignore
-                        else: # Uh oh, error town!
-                            self.input_error.set()
-                    # We've hit timeout now, so all data should be receieved.
-                    # Let's yield to allow the other stuff to go ahead
-                    self.allow_listen.clear()
-            else: # sample isn't above our floor, so we can wait
-                await asyncio.sleep_ms(1) #type:ignore    
-
-    def sample_data_bit(self):
-        # gets a single bit based off of a 5ms sample
-        sample_list = []
-        sample_timeout = time.ticks_add(time.ticks_us(), 5000)
-        while time.ticks_diff(sample_timeout, time.ticks_us()) > 0:
-            sample_list.append(self.line_in.read_u16())
-            time.sleep_us(50) # ~60us/ sample, should be enough for us
-        
-        zcount = 0 # crossings
-        if sample_list[0] > 32768: # what position are we comparing it to.
-            zdir = True
-        else:
-            zdir = False 
-        for s in sample_list:
-            if zdir:
-                if s < 32768 + self.noise_floor:
-                    zcount += 1
-                    zdir = False
-            else:
-                if s > 32768 - self.noise_floor:
-                    zcount += 1
-                    zdir = True 
-        # 1800 Hz should do 18 crossings in 5 milliseconds
-        # 1400 should do 14
-        if zcount > 20: # too high pitched, probaby noise.
-            return -1
-        elif zcount > 16: # most likely a 0
-            return 0 
-        elif zcount > 12: # most likely a 1
-            return 1
-        else:
-            return -1 # too few crossings, likely not a real signal.
-        
-    def read_full_byte(self, byte_start):
-        # with the start bet detected at byte_start, sample the data for a full byte.
-        # Because it's timing dependent, this will likely block other processes.
-        # Let's be honest: we're handling text over an audio coupler, it's fine.
-        # start by setting up our needed objects:
-        incoming_byte = 0
-        bitcount = 0
-        while bitcount < 5:
-            waiting_time = 20 + (20 * bitcount)
-            next_time = time.ticks_add(byte_start, waiting_time)
-            while time.ticks_diff(next_time, time.ticks_ms()) > 0:
-                pass # idle until we're ready for the next bit
-            bitcount += 1    
-            next_bit = self.sample_data_bit()
-            if next_bit >=0: # if we get a 0 or 1
-                incoming_byte = (incoming_byte | next_bit) << 1
-            else:
-                self.input_error.set() # notify that there's an input error.
-                return False
-        # we have time now to decode, since there's ~30ms to the next bit starting
-        
-        next_char = self.read_mode[incoming_byte] # check if it's a switching statement
-        if next_char == "LTRS":
-            self.read_mode = LTRS
-        elif next_char == "FIGS":
-            self.read_mode = FIGS
-        else:
-            self.data_buffer += next_char # we can concat a string to a string, it's fine.
-        return True 
-              
-    def pull_data_buffer(self) -> str:
-        val = self.data_buffer
-        self.data_buffer = ""
-        return val
-
-class BaudotInterface:
-    def __init__(self, audio_in_pin, audio_out_pin):
-        self.incoming_buffer = ""
-        self.outgoing_buffer = ""
-        self.io_lock = asyncio.Lock() # stop input and output 
-        self.trigger_listener = asyncio.Event() # event to tell the listener to go ahead
-        self.trigger_sender = asyncio.Event() # event to trigger the sending interface to go ahead
-        self.data_rx_event = asyncio.Event()
-        self.input_interface = BaudotInput(audio_in_pin, self.io_lock, self.trigger_listener, self.data_rx_event) 
-        self.output_interface = BaudotOutput(audio_out_pin, self.io_lock, self.trigger_sender)
-
-    def write(self, string):
-        # Push a string to the output buffer, and signal that we are ready to output data
-        self.output_interface.buffer_string(string)
-        self.trigger_sender.set()
-    
     def read(self):
-        # Return the data that was in the buffer, and clear it.
-        output = self.incoming_buffer
-        self.incoming_buffer = ""
-        return output 
+        # output the buffered text, and display it.
+        output = self.buffer
+        self.buffer = ""
+        return output
     
-    def enable_listener(self):
-        # flags the listener event to be able to run
-        self.trigger_listener.set()
-
-    def pause_listener(self):
-        # flags the listener to idle until allowed
-        # softer than the io lock since we can still output data
-        # useful if you want to delay part of a message for whatever reason
-        self.trigger_listener.clear()
-        
-
-    async def pull_buffered_data(self):
-        # pull data from the input object
-        # awaitable because it may be busy handling/decoding input
-        async with self.io_lock: # this won't let it run if we're waiting on more data to arrive
-            self.incoming_buffer += self.input_interface.pull_data_buffer()
-
-
-# Functions for testing/demo below.
-
-async def print_incoming_data(interface:BaudotInterface):
-    indat = False
-    while True:
-        if indat == "INPUT" or indat == False:
-            give_str = input("INPUT REQUEST: ")
-            interface.write(give_str)
-        else: 
-            print(indat)
-        interface.enable_listener() # signal as ready to take incoming data
-        await interface.data_rx_event.wait() # wait for incoming data
-        interface.pause_listener() # pause the listening proccess until we are done our part
-        indat = interface.read()
-
-async def TEST_print_to_console(pin1, pin2):
-    interface = BaudotInterface(pin1, pin2)
-    task_list = set()
-    task_list.add(interface.input_interface.listener())
-    task_list.add(interface.output_interface.send_when_ready())
-    task_list.add(print_incoming_data(interface))
-    return asyncio.gather(task_list) # fire them all off'''
