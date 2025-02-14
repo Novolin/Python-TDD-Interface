@@ -83,9 +83,12 @@ class BaudotOutput:
         self.buffer = deque((),280) # if it can fit in a tweet, we can print it in one go
 
     def start_transmission(self):
-        # Begin transmitting, by asserting our mark tone.
+        # Begin transmitting, by asserting our mark tone for a few ms
         self.active = True
-        self.pwm_mark.duty_u16(self.max_volume) 
+        end_assert_time = ticks_add(ticks_ms(), 50)
+        self.pwm_mark.duty_u16(self.max_volume)
+        while ticks_diff(end_assert_time, ticks_ms()) > 0:
+            pass
 
 
     def send_byte(self, byte):
@@ -104,8 +107,9 @@ class BaudotOutput:
             else:
                 self.pwm_space.duty_u16(self.max_volume)
                 self.pwm_mark.duty_u16(0)
-            end_time = ticks_add(end_time, 20)
+            
             bcount += 1
+            end_time = ticks_add(ticks_ms(), (20 * bcount))
             while ticks_diff(end_time, ticks_ms()) > 0:
                 pass # wait for the next bit, until we are done.
         # output carrier tone for at least 30ms:
@@ -131,8 +135,9 @@ class BaudotOutput:
             self.send_byte(self.buffer.popleft())
         self.end_transmission()
 
-    def write(self, text_to_send):
+    def write(self, text_to_send:str):
         mode = LTRS
+        text_to_send = text_to_send.upper()
         # First assert our mode:
         if text_to_send[0] in LTRS:
             self.buffer.append(0x1B)
