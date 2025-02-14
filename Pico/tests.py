@@ -17,3 +17,10 @@ def read_mic():
     samp_num = len(samples)
     print(str(samp_num) + " samples collected, " + str(took) + " us over estimate")
     return samples
+
+
+
+
+
+def send_text(text:str):
+    pass

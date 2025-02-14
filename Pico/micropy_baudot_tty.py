@@ -92,7 +92,7 @@ FIGS = (
 class BaudotOutput:
     def __init__(self, out_pin, iolock, send_event): 
         self.output = PWM(out_pin, freq = 1400, duty_u16 = 0) # start muted
-        self.buffered_out = deque(())
+        self.buffered_out = deque((), 255)
         self.out_mode = LTRS # what output mode are we in
         self.rts = send_event # ready to send event
         self.lock = iolock
@@ -130,7 +130,7 @@ class BaudotOutput:
         # IF YOU HAVE ISSUES WITH LONG STRINGS GOING OUT, TRY HERE
         #NOTE: YOU PROBABLY FUCKED UP WITH TIMING HERE
         end_time = time.ticks_add(time.ticks_ms(), duration)
-        self.output.freq = value
+        self.output.freq(value)
         self.output.duty_u16(32768) # GIV'R BUD
         while time.ticks_diff(time.ticks_ms(), end_time) > 0:
             pass
@@ -330,10 +330,10 @@ async def print_incoming_data(interface:BaudotInterface):
         interface.pause_listener() # pause the listening proccess until we are done our part
         indat = interface.read()
 
-def TEST_print_to_console(pin1, pin2):
+async def TEST_print_to_console(pin1, pin2):
     interface = BaudotInterface(pin1, pin2)
     task_list = set()
     task_list.add(interface.input_interface.listener())
     task_list.add(interface.output_interface.send_when_ready())
     task_list.add(print_incoming_data(interface))
-    asyncio.gather(task_list) # fire them all off
+    return asyncio.gather(task_list) # fire them all off
