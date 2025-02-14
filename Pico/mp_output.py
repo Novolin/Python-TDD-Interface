@@ -101,7 +101,7 @@ class BaudotOutput:
         while ticks_diff(end_time, ticks_ms()) > 0:
             pass # delay until our byte is completed.
         while bcount < 5: 
-            if (byte << bcount) | 1:
+            if (byte >> bcount) & 1:
                 self.pwm_mark.duty_u16(self.max_volume)
                 self.pwm_space.duty_u16(0)
             else:
