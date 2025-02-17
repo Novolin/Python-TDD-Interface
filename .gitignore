@@ -2,3 +2,4 @@ __pycache__*
 .venv
 .vscode
 .micropico
+pico_sdk_import.cmake

@@ -86,7 +86,7 @@ FIGS = (
 
 
 class BaudotOutput:
-    def __init__(self, pin_a, pin_b, max_vol = 2**16, rate = 50):
+    def __init__(self, pin_a, pin_b, max_vol = 2**15, rate = 50):
         # Use stereo output to our advantage: we can mix our PWM signals to make it work betterer?
         self.pwm_mark = PWM(pin_a, freq = 1400, duty_u16 = 0)
         self.pwm_space = PWM(pin_b, freq = 1800, duty_u16 = 0)
