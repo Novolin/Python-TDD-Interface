@@ -10,9 +10,9 @@
 import time
 import math
 import array
-import board
-from audiocore import RawSample
-import audiopwmio
+import board # type:ignore
+from audiocore import RawSample #type:ignore
+import audiopwmio #type:ignore
 
 
 # constants for sine wave generation

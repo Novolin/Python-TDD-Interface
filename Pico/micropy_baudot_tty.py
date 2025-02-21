@@ -7,15 +7,10 @@
 
 
 from machine import PWM, ADC, Pin #type: ignore 
-from micropython import const #type:ignore
 from time import ticks_diff, ticks_add, ticks_ms, time #type:ignore
-import asyncio
 from collections import deque
-from micropython import const #type:ignore
 
-# freq. constants
-_BAUDOT_ONE = const(1400) # 1400hz is the mark/carrier tone
-_BAUDOT_ZERO = const(1800) # 1800 is space/zero
+
 # Character encodings
 LTRS = (
     "\b",
@@ -91,7 +86,7 @@ FIGS = (
 
 
 class BaudotOutput:
-    def __init__(self, pin_a, pin_b, max_vol = 2**16, rate = 50):
+    def __init__(self, pin_a, pin_b, max_vol = 2**15, rate = 50):
         # Use stereo output to our advantage: we can mix our PWM signals to make it work betterer?
         self.pwm_mark = PWM(pin_a, freq = 1400, duty_u16 = 0)
         self.pwm_space = PWM(pin_b, freq = 1800, duty_u16 = 0)
@@ -207,7 +202,7 @@ class BaudotInput:
         else:
             self.rx_led = False
 
-    def decode_byte(self, byte):
+    def decode_byte(self, byte) -> str:
         decoded = self.mode[byte]
         # Return an empty string for mode switches.
         if decoded == "LTRS":
@@ -244,9 +239,9 @@ class BaudotInput:
         # at 1400 Hz we expect 14 crossings in 5ms
         # 1800 Hz would be 18
         if zero_count < 16:
-            return 1 # return a 1 since it is the mark tone
+            return True # return a 1 since it is the mark tone
         elif zero_count < 20:
-            return 0
+            return False
         else:
             raise IOError # something didn't compute correctly.
         
@@ -264,11 +259,11 @@ class BaudotInput:
         # we'll want to know the start time, so return that.
         return time_checked
     
-    def read_full_byte(self, start_time):
+    def read_full_byte(self, start_time) -> int:
         # Byte structure is as follows:
         # 1 start bit, 5 data bits, 1.5 stop bits
         # we've already read the start bit, so we need to prepare for the rest:
-        data_start_time = ticks_add(start_time, self.rate)
+        data_start_time = ticks_add(start_time, self.bit_time)
         byte_buffer = 0
         bit_count = 0
         # wait for the next bit to begin.
@@ -277,7 +272,7 @@ class BaudotInput:
         while bit_count < 5:
             byte_buffer |= self.take_sample()
             bit_count += 1
-            next_bit_time = ticks_add(data_start_time, (bit_count * self.rate))
+            next_bit_time = ticks_add(data_start_time, (bit_count * self.bit_time))
             byte_buffer = byte_buffer << 1
             while ticks_diff(next_bit_time, ticks_ms()) > 0:
                 pass # wait for our next bit
@@ -286,28 +281,25 @@ class BaudotInput:
     def read_loop(self, timeout):
         loop_timeout = time() + timeout # we only care about the seconds here.
         read_buffer = []
-        if self.monitor_led:
+        if type(self.monitor_led) == Pin: 
             self.monitor_led.value(1) # turn on our monitor light, if we got one
         loop = True
         while loop:
             tone_check = self.wait_for_tone(1000)
             if tone_check: 
-                self.rx_led.value(1)
+                if type(self.rx_led) == Pin:
+                    self.rx_led.value(1)
                 read_byte = self.read_full_byte(tone_check)
-                read_buffer.append(self.decode_byte(read_byte))
+                self.buffer += self.decode_byte(read_byte)
                 tone_check = False 
                 loop_timeout += 1 # add another second to our loop timeout.
             else: # if we don't get a tone before the timeout
                 if time() > loop_timeout:
-                    break
-
+                    loop = False
         
-                
-
-
-        
-            
+    def read(self):
+        # output the buffered text, and display it.
+        output = self.buffer
+        self.buffer = ""
+        return output
     
-    
-
-        
