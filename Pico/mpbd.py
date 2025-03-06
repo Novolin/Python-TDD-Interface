@@ -5,18 +5,78 @@
 ####################
 
 
+## UHH IM OUT OUF DATE SO LETS SKIP THIS BAD BOI
+
+
 
 from machine import PWM, ADC, Pin #type: ignore 
-from time import ticks_diff, ticks_add, ticks_ms, time #type:ignore
+from time import ticks_diff, ticks_add, ticks_ms, ticks_us, time #type:ignore
 from collections import deque
 from math import tau, sin
+from micropython import const
 
-# Sine Table!
+# PWM Sine Table Stuff
 TABLE_LENGTH = 20 # 20 samples per wave
 _MAXVOL = 2**12 
 SINE_TABLE = [
     int(32768 + _MAXVOL * sin((tau / TABLE_LENGTH)* i)) for i in range(TABLE_LENGTH)
 ]
+# how many us per step in the pwm signal (@ 20 samples/wave. recalc if you change that.)
+MARK = const(36) 
+SPACE = const(28)
+
+# testing?
+TEST_PIN = PWM(19, freq = 10000, duty_u16 = 0)
+def play_tone(time:int, tone = MARK):
+    # play mark tone for time ms
+    tablepos = 0
+    time_us = time * 1000
+    end = ticks_add(ticks_us(), time_us)
+    while ticks_diff(end, ticks_us) > 0:
+        TEST_PIN.duty_u16(SINE_TABLE[tablepos])
+        endb = ticks_add(ticks_us(), tone)
+        tablepos += 1
+        if tablepos >= TABLE_LENGTH:
+            tablepos = 0
+        while ticks_diff(endb, ticks_us()) > 0:
+            pass
+
+def send_ryry():
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(30,MARK)
+    # next char
+    play_tone(20,SPACE)
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(20,SPACE)
+    play_tone(30,MARK)
+    # next char
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(30,MARK)
+    # next char
+    play_tone(20,SPACE)
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(20,SPACE)
+    play_tone(20,MARK)
+    play_tone(20,SPACE)
+    play_tone(30,MARK)
+
+# EVERYTHING BELOW THS SUCKS ASS AND SHOULD BE IGNOREDED OR MERGED ONCE THE ACTUAL SHIT GETS SORTED
+
+
 
 # Character encodings
 LTRS = (
@@ -90,12 +150,12 @@ FIGS = (
 
 
 class BaudotOutput:
-    def __init__(self, pin_a, pin_b, rate = 50):
+    def __init__(self, pin_a, rate = 50):
         # Use stereo output to our advantage: we can mix our PWM signals to make it work betterer?
-        self.pwm_mark = PWM(pin_a, freq = 1400, duty_u16 = 0)
-        self.pwm_space = PWM(pin_b, freq = 1800, duty_u16 = 0)
+        self.pwm = PWM(pin_a, freq = 10000, duty_u16 = 0)
         self.active = False 
         self.buffer = deque((),280) # if it can fit in a tweet, we can print it in one go
+        self.output_freqency = MARK
         self.bit_time = int(1000/rate) # 20 for 50 baud, 22 for 45.5
 
     def start_transmission(self):
@@ -188,6 +248,9 @@ class BaudotOutput:
         # fart that bad boy out audio-style
         self.send_buffer()
 
+    def play_mark(howlong):
+        # Plays the mark tone for howlong ms
+        end_time = ticks_add(ticks_us, howlong * 1000)
 
 class BaudotInput:
     def __init__(self, adc_pin, noise_floor = 1000, rate = 50, monitor_led = False, rx_led = False):
