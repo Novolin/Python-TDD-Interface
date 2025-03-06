@@ -161,7 +161,7 @@ class BaudotOutput:
     def start_transmission(self):
         # Begin transmitting, by asserting our mark tone for a few ms
         self.active = True
-        end_assert_time = ticks_add(ticks_ms(), 50)
+        end_assert_time = ticks_add(ticks_ms(), 150)
         self.pwm_mark.duty_u16(self.max_volume)
         while ticks_diff(end_assert_time, ticks_ms()) > 0:
             pass
