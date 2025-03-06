@@ -13,7 +13,7 @@ from machine import PWM, ADC, Pin #type: ignore
 from time import ticks_diff, ticks_add, ticks_ms, ticks_us, time #type:ignore
 from collections import deque
 from math import tau, sin
-from micropython import const
+from micropython import const #type: ignore
 
 # PWM Sine Table Stuff
 TABLE_LENGTH = 20 # 20 samples per wave
@@ -25,56 +25,6 @@ SINE_TABLE = [
 MARK = const(36) 
 SPACE = const(28)
 
-# testing?
-TEST_PIN = PWM(19, freq = 10000, duty_u16 = 0)
-def play_tone(time:int, tone = MARK):
-    # play mark tone for time ms
-    tablepos = 0
-    time_us = time * 1000
-    end = ticks_add(ticks_us(), time_us)
-    while ticks_diff(end, ticks_us) > 0:
-        TEST_PIN.duty_u16(SINE_TABLE[tablepos])
-        endb = ticks_add(ticks_us(), tone)
-        tablepos += 1
-        if tablepos >= TABLE_LENGTH:
-            tablepos = 0
-        while ticks_diff(endb, ticks_us()) > 0:
-            pass
-
-def send_ryry():
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(30,MARK)
-    # next char
-    play_tone(20,SPACE)
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(20,SPACE)
-    play_tone(30,MARK)
-    # next char
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(30,MARK)
-    # next char
-    play_tone(20,SPACE)
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(20,SPACE)
-    play_tone(20,MARK)
-    play_tone(20,SPACE)
-    play_tone(30,MARK)
-
-# EVERYTHING BELOW THS SUCKS ASS AND SHOULD BE IGNOREDED OR MERGED ONCE THE ACTUAL SHIT GETS SORTED
 
 
 

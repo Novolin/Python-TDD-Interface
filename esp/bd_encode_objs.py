@@ -135,6 +135,7 @@ class BDEncoder:
                 else: # should only happen if you use an unsanitized string.
                     print("Invalid Character: " + c)
                     self.output_buffer.append(" ")
+                    continue
             self.output_buffer.append(self.encoding_mode.index(c))
             self.encode_asserted += 1
         return 
