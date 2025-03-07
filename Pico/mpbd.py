@@ -4,10 +4,8 @@
 # return of the pwm
 ####################
 
-
-## UHH IM OUT OUF DATE SO LETS SKIP THIS BAD BOI
-
-
+# if this works better im gonna shit
+# may need a cap in line with the speaker
 
 from machine import PWM, ADC, Pin #type: ignore 
 from time import ticks_diff, ticks_add, ticks_ms, ticks_us, time #type:ignore
@@ -98,61 +96,57 @@ FIGS = (
     "LTRS",
 )
 
+# The primary difference for this one is I'm trying to use PWM properly to control pseudo-analog voltage
+# The other one just uses square waves and hopes for the best.
+
 
 class BaudotOutput:
-    def __init__(self, pin_a, rate = 50):
-        # Use stereo output to our advantage: we can mix our PWM signals to make it work betterer?
-        self.pwm = PWM(pin_a, freq = 10000, duty_u16 = 0)
+    def __init__(self, pwm_pin, rate = 50):
+        # Use stereo output to our advantage: we can use one channel for each frequency
+        self.pwm = PWM(pwm_pin, freq = 10000, duty_u16 = 0) 
+        self.mode = LTRS
         self.active = False 
         self.buffer = deque((),280) # if it can fit in a tweet, we can print it in one go
-        self.output_freqency = MARK
-        self.bit_time = int(1000/rate) # 20 for 50 baud, 22 for 45.5
+        self.bit_time =  int(1000/rate) # 20ms for 50 baud, 22ms for 45.5
+        self.assert_every = 30 # how many characters we should wait before reasserting mode
+        self.since_assert = 99
 
+    def do_tone(self, tone, length:int):
+        ''' plays tone (either MARK or SPACE) for length ms'''
+        sinestep = 0
+        end_time = ticks_add(ticks_us(), length * 1000) #convert ms to us
+        while ticks_diff(end_time, ticks_us()) > 0:
+            next_step = ticks_add(ticks_us(), tone)
+            self.pwm.duty_u16 = SINE_TABLE[sinestep]
+            sinestep += 1
+            if sinestep >= TABLE_LENGTH:
+                sinestep = 0
+            while ticks_diff(next_step, ticks_us()) > 0:
+                pass # wait for the next pwm step.
+        
+    
     def start_transmission(self):
-        # Begin transmitting, by asserting our mark tone for a few ms
+        # Begin transmitting, by asserting our mark tone for a 150ms (per the standard)
         self.active = True
-        end_assert_time = ticks_add(ticks_ms(), 150)
-        self.pwm_mark.duty_u16(self.max_volume)
-        while ticks_diff(end_assert_time, ticks_ms()) > 0:
-            pass
+        self.do_tone(MARK, 150)
 
 
     def send_byte(self, byte):
-        # Send an entire data byte as a packet
-        start_time = ticks_ms()
-        self.pwm_space.duty_u16(self.max_volume) # assert space before deasserting mark, so the device doesn't get confused
-        self.pwm_mark.duty_u16(0)
-        end_time = ticks_add(start_time, self.bit_time) 
-        bcount = 0 # bit counter
-        while ticks_diff(end_time, ticks_ms()) > 0:
-            pass # delay until our byte is completed.
-        while bcount < 5: 
-            if (byte >> bcount) & 1:
-                self.pwm_mark.duty_u16(self.max_volume)
-                self.pwm_space.duty_u16(0)
+        ''' Sends a singe byte of data, including start and stop bits'''
+        self.do_tone(SPACE, self.bit_time)
+        for i in range(6):
+            if (byte >> i) & 1:
+                self.do_tone(MARK, self.bit_time)
             else:
-                self.pwm_space.duty_u16(self.max_volume)
-                self.pwm_mark.duty_u16(0)
-            
-            bcount += 1
-            end_time = ticks_add(ticks_ms(), (self.bit_time * bcount) + bcount)
-            while ticks_diff(end_time, ticks_ms()) > 0:
-                pass # wait for the next bit, until we are done.
-        # output carrier tone for at least 1.5 bits:
-        self.pwm_mark.duty_u16(self.max_volume)
-        self.pwm_space.duty_u16(0)
-        end_time = ticks_add(end_time, (self.bit_time * 2))
-        while ticks_diff(end_time, ticks_ms())> 0:
-            pass 
+                self.do_tone(SPACE, self.bit_time)
+        self.do_tone(MARK, int(self.bit_time * 1.5)) # stop bit is 1.5x the regular bit
+        
+        
     
-
-
     def end_transmission(self):
         # play anti-echo, then return to silent
-        end_time = ticks_add(ticks_ms(), 200) # 150 to 300ms, depending on your preference
-        while ticks_diff(end_time, ticks_ms()) > 0:
-            pass # simply wait, as we should be ending on the 1400hz tone
-        self.pwm_mark.duty_u16(0)
+        self.do_tone(MARK, 150)
+        self.pwm.duty_u16(0)
         self.active = False
 
     def send_buffer(self):
@@ -161,46 +155,45 @@ class BaudotOutput:
             self.send_byte(self.buffer.popleft())
         self.end_transmission()
 
+    def sanitize_string(self, string:str, override_str:str = " ", newline = "\n\r") -> str:
+        ''' Sanitizes the input string to work with baudot encoding, encodes new lines to work nicely, too.'''
+        outstr = ""
+        for c in string.upper():
+            if c == "\n":
+                outstr += newline
+            elif c in LTRS or c in FIGS:
+                outstr += c
+            else:
+                outstr += override_str
+
+    def buffer_string(self, string):
+        ''' adds a string to the buffer to send.'''
+        for c in string:
+            if c not in self.mode or self.since_assert > self.assert_every:
+                if c in LTRS:
+                    self.mode = LTRS
+                    self.buffer.append(0x1B)
+                    self.since_assert = 0
+                elif c in FIGS:
+                    self.mode = FIGS
+                    self.buffer.append(0x1F)
+                    self.since_assert = 0
+                else: # if the string isn't sanitized properly
+                    print("Invalid Character: " + c)
+                    self.buffer.append(0x04)
+                    continue # don't try to add a junk character
+            self.buffer.append(self.mode.index(c))
+            self.since_assert += 1
+
     def write(self, text_to_send:str):
-        mode = LTRS
-        text_to_send = text_to_send.upper()
-        # First assert our mode:
-        if text_to_send[0] in LTRS:
-            self.buffer.append(0x1B)
-        else:
-            self.buffer.append(0x1F)
-            mode = FIGS
-        char_count = 1
-        # add message to send buffer
-        for c in text_to_send:
-            if c in mode:
-                self.buffer.append(mode.index(c))
-            elif c in FIGS:
-                mode = FIGS
-                self.buffer.append(0x1f)
-                self.buffer.append(mode.index(c))
-                char_count = 0 # we've asserted recently, so we don't need to again
-            elif c in LTRS:
-                mode = LTRS
-                self.buffer.append(0x1b)
-                self.buffer.append(mode.index(c))
-                char_count = 0
-            else: # replace invalid characters with a space
-                self.buffer.append(5) 
-            char_count += 1
-            if char_count % 15 == 0:
-                if mode == LTRS:
-                    self.buffer.append(0x1b)
-                    char_count = 0
-                elif mode == FIGS:
-                    self.buffer.append(0x1f)
-                    char_count = 0
-        # fart that bad boy out audio-style
+        # sanitize our input:
+        sanistring = self.sanitize_string(text_to_send)
+        # buffer it:
+        self.buffer_string(sanistring)
+        # send it:
         self.send_buffer()
 
-    def play_mark(howlong):
-        # Plays the mark tone for howlong ms
-        end_time = ticks_add(ticks_us, howlong * 1000)
+
 
 class BaudotInput:
     def __init__(self, adc_pin, noise_floor = 1000, rate = 50, monitor_led = False, rx_led = False):
