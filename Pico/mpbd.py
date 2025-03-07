@@ -117,7 +117,7 @@ class BaudotOutput:
         end_time = ticks_add(ticks_us(), length * 1000) #convert ms to us
         while ticks_diff(end_time, ticks_us()) > 0:
             next_step = ticks_add(ticks_us(), tone)
-            self.pwm.duty_u16 = SINE_TABLE[sinestep]
+            self.pwm.duty_u16(SINE_TABLE[sinestep])
             sinestep += 1
             if sinestep >= TABLE_LENGTH:
                 sinestep = 0
@@ -165,8 +165,9 @@ class BaudotOutput:
                 outstr += c
             else:
                 outstr += override_str
+        return outstr
 
-    def buffer_string(self, string):
+    def buffer_string(self, string):    
         ''' adds a string to the buffer to send.'''
         for c in string:
             if c not in self.mode or self.since_assert > self.assert_every:
