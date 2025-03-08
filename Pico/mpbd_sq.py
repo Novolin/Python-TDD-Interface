@@ -163,7 +163,7 @@ class BaudotOutput:
             else:
                 outstr += override_str
 
-    def buffer_string(self, string):
+    def buffer_string(self, string:str):
         ''' adds a string to the buffer to send.'''
         for c in string:
             if c not in self.mode or self.since_assert > self.assert_every:
