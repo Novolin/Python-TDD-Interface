@@ -1,6 +1,6 @@
 #######
 # Baudot MicroPython Thing
-# V 0.0.3 
+# V 0.0.3a
 # return of the pwm
 ####################
 
@@ -14,14 +14,14 @@ from math import tau, sin
 from micropython import const #type: ignore
 
 # PWM Sine Table Stuff
-TABLE_LENGTH = 20 # 20 samples per wave
-_MAXVOL = 2**12 
+TABLE_LENGTH = const(15) # how many samples per wave
+_MAXVOL = 2**14 
 SINE_TABLE = [
     int(32768 + _MAXVOL * sin((tau / TABLE_LENGTH)* i)) for i in range(TABLE_LENGTH)
 ]
-# how many us per step in the pwm signal (@ 20 samples/wave. recalc if you change that.)
-MARK = const(36) 
-SPACE = const(28)
+# calculate how long each sample should be for the binary ones/zeros
+_BINARY_ONE = int(1000000 / (TABLE_LENGTH * 1400))
+_BINARY_ZERO = int(1000000 / (TABLE_LENGTH * 1800))
 
 
 
@@ -107,14 +107,14 @@ class BaudotOutput:
         self.mode = LTRS
         self.active = False 
         self.buffer = deque((),280) # if it can fit in a tweet, we can print it in one go
-        self.bit_time =  int(1000/rate) # 20ms for 50 baud, 22ms for 45.5
+        self.bit_time =  int(1000000/rate) # 20 000 us for 50 baud, 22 000 us for 45.5
         self.assert_every = 30 # how many characters we should wait before reasserting mode
         self.since_assert = 99
 
     def do_tone(self, tone, length:int):
-        ''' plays tone (either MARK or SPACE) for length ms'''
+        ''' plays tone (either MARK or SPACE) for length us'''
         sinestep = 0
-        end_time = ticks_add(ticks_us(), length * 1000) #convert ms to us
+        end_time = ticks_add(ticks_us(), length)
         while ticks_diff(end_time, ticks_us()) > 0:
             next_step = ticks_add(ticks_us(), tone)
             self.pwm.duty_u16(SINE_TABLE[sinestep])
@@ -128,24 +128,24 @@ class BaudotOutput:
     def start_transmission(self):
         # Begin transmitting, by asserting our mark tone for a 150ms (per the standard)
         self.active = True
-        self.do_tone(MARK, 150)
+        self.do_tone(_BINARY_ONE, 150)
 
 
     def send_byte(self, byte):
         ''' Sends a singe byte of data, including start and stop bits'''
-        self.do_tone(SPACE, self.bit_time)
+        self.do_tone(_BINARY_ZERO, self.bit_time)
         for i in range(6):
             if (byte >> i) & 1:
-                self.do_tone(MARK, self.bit_time)
+                self.do_tone(_BINARY_ONE, self.bit_time)
             else:
-                self.do_tone(SPACE, self.bit_time)
-        self.do_tone(MARK, int(self.bit_time * 1.5)) # stop bit is 1.5x the regular bit
+                self.do_tone(_BINARY_ZERO, self.bit_time)
+        self.do_tone(_BINARY_ONE, int(self.bit_time * 1.5)) # stop bit is 1.5x the regular bit
         
         
     
     def end_transmission(self):
         # play anti-echo, then return to silent
-        self.do_tone(MARK, 150)
+        self.do_tone(_BINARY_ONE, 150000)
         self.pwm.duty_u16(0)
         self.active = False
 

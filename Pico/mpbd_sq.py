@@ -112,9 +112,8 @@ class BaudotOutput:
         bcount = 0 # bit counter
         start_time = ticks_add(ticks_us(), 10000) # give a 10 ms buffer, because i dont trust like that
         timearray = []
-        for i in range(6):
-            timearray.append(ticks_add(start_time, self.bit_time + self.bit_time * i))
-        print(timearray)
+        for i in range(8):
+            timearray.append(ticks_add(start_time, self.bit_time + (self.bit_time * i)))
         self.pwm_mark.duty_u16(0)
         self.pwm_space.duty_u16(self.max_volume) # assert space before deasserting mark, so the device doesn't get confused
         end_time = ticks_add(ticks_us(), self.bit_time) 
@@ -128,7 +127,7 @@ class BaudotOutput:
                 self.pwm_mark.duty_u16(0)
                 self.pwm_space.duty_u16(self.max_volume)
             bcount += 1
-            while ticks_diff(timearray[bcount], ticks_us()) > 0:
+            while ticks_diff(timearray[bcount + 1], ticks_us()) > 0:
                 pass # wait for the next bit, until we are done.
         # output carrier tone for at least 1.5 bits:
         self.pwm_space.duty_u16(0)
@@ -162,6 +161,7 @@ class BaudotOutput:
                 outstr += c
             else:
                 outstr += override_str
+        return outstr
 
     def buffer_string(self, string:str):
         ''' adds a string to the buffer to send.'''
